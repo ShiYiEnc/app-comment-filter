@@ -1,0 +1,10 @@
+{
+  "all_edits_stay_unsaved": true,
+  "draft_survives_activity_recreation": true,
+  "manual_save_persists_snapshot": true,
+  "restart_loads_saved_rules": true,
+  "unsaved_edits_discarded_after_force_stop": true,
+  "failed_save_retains_input_and_button_retry_works": true,
+  "footer_removed": true,
+  "api": 37
+}

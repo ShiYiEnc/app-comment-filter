@@ -1,0 +1,20 @@
+{
+  "version": "0.2.0",
+  "version_code": 8,
+  "tests": 85,
+  "failures": 0,
+  "lint": [
+    {
+      "id": "OldTargetApi",
+      "severity": "Warning"
+    },
+    {
+      "id": "AndroidGradlePluginVersion",
+      "severity": "Warning"
+    }
+  ],
+  "apk_sha256": "48ace7db2782658480bcc166f1b970fdfd27b2e00ccf2870d58e8f34e16ca5b7",
+  "signature_v2_verified": true,
+  "ui_smoke": "ui-0.2.0/results.json",
+  "host_runtime_tested": false
+}

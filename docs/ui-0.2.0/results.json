@@ -1,0 +1,12 @@
+{
+  "legacy_kuaishou_read_without_migration_write": true,
+  "switch_keeps_independent_unsaved_drafts_and_save_only_current_profile": true,
+  "drafts_survive_activity_recreation_and_first_ks_save_migrates_revision": true,
+  "all_five_profiles_keep_independent_rules_modes_switches_revisions": true,
+  "fresh_process_restores_saved_profiles_and_last_selection_discards_unsaved_edits": true,
+  "dark_mode_recreation_retains_selected_profile": true,
+  "unrelated_shell_uid_cannot_query_profile": true,
+  "device_api": 37,
+  "host_hooks_tested": false,
+  "original_module_preferences_restored": true
+}

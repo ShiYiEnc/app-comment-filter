@@ -1,0 +1,231 @@
+{
+  "analysis_date": "2026-10-28",
+  "timezone": "Asia/Shanghai",
+  "kind": "static-analysis-index",
+  "note": "This index retains REA evidence IDs; full local records remain in ignored .tools/. No runtime validation.",
+  "records": [
+    {
+      "record": ".tools/package-evidence.json",
+      "record_sha256": "899cc0a3beafbb48e99810ab47a5081bb305bc30ed342c3dfca19b3095490923",
+      "evidence_id": "ev_4553edb61d47ca142d534b9fa009ee9370fd3d4bb07243454deddcfe150ce9fb",
+      "operation": "inspect_android_package",
+      "subject_sha256": "74f25f5e5fb05ebd1b31988664497eb997f51e8d4c8e73c97b799ecf041ccfff",
+      "class_name": null,
+      "method": null,
+      "limitations": [
+        "Static decompiler observations do not establish runtime behavior; the APK is never executed.",
+        "Method signatures use provider display types; exact DEX descriptors and instruction offsets are unavailable. Overload indices are local to this engine and artifact.",
+        "Class inventories use parsed metadata before code generation, including synthetic members that may be omitted from decompiled source. Source positions remain unknown.",
+        "Manifest summary fields are extracted by the upstream engine; decoded XML is retained for verification. APK signatures, split APKs, native libraries and Android runtime capture are not verified by this provider."
+      ],
+      "identity": {
+        "package_name": "com.smile.gifmaker",
+        "version_name": "14.9.20.50799",
+        "version_code": "50799",
+        "min_sdk": "21",
+        "target_sdk": "30"
+      }
+    },
+    {
+      "record": ".tools/qcomment-issub-evidence.json",
+      "record_sha256": "48671545dbb734132a6a0430053c371c242b2b1cf6b19ae9ce3eba105a17be68",
+      "evidence_id": "ev_873609326e6b056d5744d25bc4755ebe236a3c00752febd7dfacb4f93d175c75",
+      "operation": "inspect_android_method",
+      "subject_sha256": "74f25f5e5fb05ebd1b31988664497eb997f51e8d4c8e73c97b799ecf041ccfff",
+      "class_name": "com.kuaishou.android.model.mix.QComment",
+      "method": {
+        "name": "isSub",
+        "reported_signature": "isSub(): boolean",
+        "overload_index": 0,
+        "is_constructor": false,
+        "dex_descriptor": null
+      },
+      "limitations": [
+        "Static decompiler observations do not establish runtime behavior; the APK is never executed.",
+        "Method signatures use provider display types; exact DEX descriptors and instruction offsets are unavailable. Overload indices are local to this engine and artifact.",
+        "Class inventories use parsed metadata before code generation, including synthetic members that may be omitted from decompiled source. Source positions remain unknown.",
+        "Manifest summary fields are extracted by the upstream engine; decoded XML is retained for verification. APK signatures, split APKs, native libraries and Android runtime capture are not verified by this provider."
+      ],
+      "source_status": "complete",
+      "body_status": "available",
+      "source_sha256": "8c7a872eeece1214bcd13327ee58d7e15fe92b25a80e041cbe3b06006800405a",
+      "source_excerpt": [
+        "if (this.mParent != null) {"
+      ]
+    },
+    {
+      "record": ".tools/user-sex-evidence.json",
+      "record_sha256": "93948a955530e94924fda6d468739d0fe4b6e10b666107e0a4c72baa03f96756",
+      "evidence_id": "ev_10b65d7bdebaa475be613e1d11ffd6f4e66d847053cbc13734d78e91aa692858",
+      "operation": "inspect_android_method",
+      "subject_sha256": "74f25f5e5fb05ebd1b31988664497eb997f51e8d4c8e73c97b799ecf041ccfff",
+      "class_name": "com.kwai.framework.model.user.User",
+      "method": {
+        "name": "isMale",
+        "reported_signature": "isMale(): boolean",
+        "overload_index": 0,
+        "is_constructor": false,
+        "dex_descriptor": null
+      },
+      "limitations": [
+        "Static decompiler observations do not establish runtime behavior; the APK is never executed.",
+        "Method signatures use provider display types; exact DEX descriptors and instruction offsets are unavailable. Overload indices are local to this engine and artifact.",
+        "Class inventories use parsed metadata before code generation, including synthetic members that may be omitted from decompiled source. Source positions remain unknown.",
+        "Manifest summary fields are extracted by the upstream engine; decoded XML is retained for verification. APK signatures, split APKs, native libraries and Android runtime capture are not verified by this provider."
+      ],
+      "source_status": "complete",
+      "body_status": "available",
+      "source_sha256": "5d4ce0088cc0e65596d96e4fe44cbbce608a5708ad0c4f0809a16e133c41eb94",
+      "source_excerpt": [
+        "return \"M\".equals(this.mSex);"
+      ]
+    },
+    {
+      "record": ".tools/common-refs-evidence.json",
+      "record_sha256": "9c35f788b275591fa5a25b7e03ebe3044067e1215cb6db4fe9bde24e2d64d78c",
+      "evidence_id": "ev_2176dcd3048cdaf72f9f087380a5b64906a1342239f9aa0eb0bedd4ec4486cf0",
+      "operation": "trace_android_references",
+      "subject_sha256": "74f25f5e5fb05ebd1b31988664497eb997f51e8d4c8e73c97b799ecf041ccfff",
+      "class_name": "com.yxcorp.gifshow.comment.common.model.response.CommonCommentResponse",
+      "method": null,
+      "limitations": [
+        "Static decompiler observations do not establish runtime behavior; the APK is never executed.",
+        "Method signatures use provider display types; exact DEX descriptors and instruction offsets are unavailable. Overload indices are local to this engine and artifact.",
+        "Class inventories use parsed metadata before code generation, including synthetic members that may be omitted from decompiled source. Source positions remain unknown.",
+        "Manifest summary fields are extracted by the upstream engine; decoded XML is retained for verification. APK signatures, split APKs, native libraries and Android runtime capture are not verified by this provider."
+      ]
+    },
+    {
+      "record": ".tools/kmp-page-evidence.json",
+      "record_sha256": "b5cd85d24f70f3f2d322d7eda93545f3c3cfa6a2d7f93f5aff39e7ee0c9ef9c6",
+      "evidence_id": "ev_114d5df40cc67b96cc0552fa53536b2364cea627878a78de664c5c46a808d312",
+      "operation": "inspect_android_class",
+      "subject_sha256": "74f25f5e5fb05ebd1b31988664497eb997f51e8d4c8e73c97b799ecf041ccfff",
+      "class_name": "com.kwai.kmp.comment.mvi.panel.pagelist.KmpCommentFeaturePageList",
+      "method": null,
+      "limitations": [
+        "Static decompiler observations do not establish runtime behavior; the APK is never executed.",
+        "Method signatures use provider display types; exact DEX descriptors and instruction offsets are unavailable. Overload indices are local to this engine and artifact.",
+        "Class inventories use parsed metadata before code generation, including synthetic members that may be omitted from decompiled source. Source positions remain unknown.",
+        "Manifest summary fields are extracted by the upstream engine; decoded XML is retained for verification. APK signatures, split APKs, native libraries and Android runtime capture are not verified by this provider."
+      ]
+    },
+    {
+      "record": ".tools/kmp-i1-evidence.json",
+      "record_sha256": "cbbe10ac413ec97a66b670201fa9233a9647b05aa5e50743764647212f7cfe56",
+      "evidence_id": "ev_8d2068f469b9f55f7100087e3bf63c3cd624fbfd9dea2d48af87b0b1190589e8",
+      "operation": "inspect_android_method",
+      "subject_sha256": "74f25f5e5fb05ebd1b31988664497eb997f51e8d4c8e73c97b799ecf041ccfff",
+      "class_name": "com.kwai.kmp.comment.mvi.panel.pagelist.KmpCommentFeaturePageList",
+      "method": {
+        "name": "i1",
+        "reported_signature": "i1(w2b.q): void",
+        "overload_index": 0,
+        "is_constructor": false,
+        "dex_descriptor": null
+      },
+      "limitations": [
+        "Static decompiler observations do not establish runtime behavior; the APK is never executed.",
+        "Method signatures use provider display types; exact DEX descriptors and instruction offsets are unavailable. Overload indices are local to this engine and artifact.",
+        "Class inventories use parsed metadata before code generation, including synthetic members that may be omitted from decompiled source. Source positions remain unknown.",
+        "Manifest summary fields are extracted by the upstream engine; decoded XML is retained for verification. APK signatures, split APKs, native libraries and Android runtime capture are not verified by this provider."
+      ],
+      "source_status": "complete",
+      "body_status": "available",
+      "source_sha256": "8948802d5f901ba92857d01779d6d5eb5add82da2ecae43899b80e2ecee71937",
+      "source_excerpt": [
+        "List<dpb.d> kRootComments = qVar.getKRootComments();",
+        "if (dVar.getKType() == 0) {",
+        "dVar.setKType(1);",
+        "Map<String, k0> kSubCommentMap = qVar.getKSubCommentMap();",
+        "dVar2.setKType(2);"
+      ]
+    },
+    {
+      "record": ".tools/kmp-w1-evidence.json",
+      "record_sha256": "b574d5e5f74e77bcb749388048e698c06d4fb5fe63cabff9b13aa2547fcc89c8",
+      "evidence_id": "ev_5570329c4a0bf9c39b329f76cc0ab528aae813ed70ab9451ae60de658697299b",
+      "operation": "inspect_android_method",
+      "subject_sha256": "74f25f5e5fb05ebd1b31988664497eb997f51e8d4c8e73c97b799ecf041ccfff",
+      "class_name": "com.kwai.kmp.comment.mvi.panel.pagelist.KmpCommentFeaturePageList",
+      "method": {
+        "name": "w1",
+        "reported_signature": "w1(w2b.q): void",
+        "overload_index": 0,
+        "is_constructor": false,
+        "dex_descriptor": null
+      },
+      "limitations": [
+        "Static decompiler observations do not establish runtime behavior; the APK is never executed.",
+        "Method signatures use provider display types; exact DEX descriptors and instruction offsets are unavailable. Overload indices are local to this engine and artifact.",
+        "Class inventories use parsed metadata before code generation, including synthetic members that may be omitted from decompiled source. Source positions remain unknown.",
+        "Manifest summary fields are extracted by the upstream engine; decoded XML is retained for verification. APK signatures, split APKs, native libraries and Android runtime capture are not verified by this provider."
+      ],
+      "source_status": "complete",
+      "body_status": "available",
+      "source_sha256": "bb8989e8dfaf3a45ed9fb93a4dccaf3c13f33f49c2ec8eb2feef14148f9bd6f3",
+      "source_excerpt": [
+        "d1(qVar.getKLocalComments());",
+        "e1(qVar.getKLocalComments());",
+        "qVar.setKLocalFullList(D1(this, this.f111082j, false, 2, null));",
+        "qVar.setKLocalFullList(D1(this, this.f111082j, false, 2, null));"
+      ]
+    },
+    {
+      "record": ".tools/kmp-completion-evidence.json",
+      "record_sha256": "65699daddcae569c73ee5696c6d256a4d55392fa725e2e28bbe92e9b11d6af9d",
+      "evidence_id": "ev_01d6b3c73106ffbfe4f52b724a6615fda1ff867a9b10e8c46e6fb70d11652fea",
+      "operation": "inspect_android_method",
+      "subject_sha256": "74f25f5e5fb05ebd1b31988664497eb997f51e8d4c8e73c97b799ecf041ccfff",
+      "class_name": "com.kwai.kmp.pagelist.KMPPageList",
+      "method": {
+        "name": "q",
+        "reported_signature": "q(com.kwai.kmp.pagelist.KMPPageList$c<PAGE>): void",
+        "overload_index": 0,
+        "is_constructor": false,
+        "dex_descriptor": null
+      },
+      "limitations": [
+        "Static decompiler observations do not establish runtime behavior; the APK is never executed.",
+        "Method signatures use provider display types; exact DEX descriptors and instruction offsets are unavailable. Overload indices are local to this engine and artifact.",
+        "Class inventories use parsed metadata before code generation, including synthetic members that may be omitted from decompiled source. Source positions remain unknown.",
+        "Manifest summary fields are extracted by the upstream engine; decoded XML is retained for verification. APK signatures, split APKs, native libraries and Android runtime capture are not verified by this provider."
+      ],
+      "source_status": "complete",
+      "body_status": "available",
+      "source_sha256": "39f686563b3aa73eb6e2fff7ef75c812b64639af561a31db05f62f3fbd1ae18b",
+      "source_excerpt": [
+        "s(response.a(), b());",
+        "t(response.a());",
+        "u(false);"
+      ]
+    },
+    {
+      "record": ".tools/comment-footer-add-evidence.json",
+      "record_sha256": "039b8d4767e751f530f72e8ebe8fc6e6d5730761fc3161a1f2a518886a7e69e6",
+      "evidence_id": "ev_cad86b079b05b39044b9e27f91f1380d66f362edd17f49da8c87cad9fd795a85",
+      "operation": "inspect_android_method",
+      "subject_sha256": "74f25f5e5fb05ebd1b31988664497eb997f51e8d4c8e73c97b799ecf041ccfff",
+      "class_name": "pcl.f",
+      "method": {
+        "name": "Q1",
+        "reported_signature": "Q1(android.view.View): void",
+        "overload_index": 0,
+        "is_constructor": false,
+        "dex_descriptor": null
+      },
+      "limitations": [
+        "Static decompiler observations do not establish runtime behavior; the APK is never executed.",
+        "Method signatures use provider display types; exact DEX descriptors and instruction offsets are unavailable. Overload indices are local to this engine and artifact.",
+        "Class inventories use parsed metadata before code generation, including synthetic members that may be omitted from decompiled source. Source positions remain unknown.",
+        "Manifest summary fields are extracted by the upstream engine; decoded XML is retained for verification. APK signatures, split APKs, native libraries and Android runtime capture are not verified by this provider."
+      ],
+      "source_status": "complete",
+      "body_status": "available",
+      "source_sha256": "a15c294cfb69dd3a06ef32b84be9ce980548b14cdb2f1a6970f448b903764781",
+      "source_excerpt": [
+        "e2(view, null);"
+      ]
+    }
+  ]
+}

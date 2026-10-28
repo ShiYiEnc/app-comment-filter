@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "enabled": true,
+  "mode": "BLACKLIST",
+  "ignoreKeywordCase": true,
+  "blacklist": [
+    {"id": "隐藏推广关键词", "keywords": ["测试过滤", "加我推广"]},
+    {"id": "广东且推广", "locations": ["广东"], "keywords": ["推广"]},
+    {"id": "未知性别且未知属地", "genders": ["UNKNOWN"], "unknownLocation": true}
+  ],
+  "whitelist": []
+}

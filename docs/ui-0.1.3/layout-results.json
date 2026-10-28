@@ -1,0 +1,20 @@
+{
+  "editor_recreation_retains_input": true,
+  "screens": [
+    "after.png",
+    "editor.png",
+    "whitelist.png",
+    "dark.png",
+    "large-font.png",
+    "narrow.png",
+    "narrow-editor.png"
+  ],
+  "api": 37,
+  "viewport_dp": "393x851",
+  "narrow_dp": "320x640",
+  "font_scales": [
+    1.0,
+    1.3,
+    2.0
+  ]
+}

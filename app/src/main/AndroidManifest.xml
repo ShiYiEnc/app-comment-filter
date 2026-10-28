@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <queries>
+        <package android:name="com.smile.gifmaker" />
+        <package android:name="tv.danmaku.bili" />
+        <package android:name="tv.danmaku.bilibilihd" />
+        <package android:name="com.xingin.xhs" />
+        <package android:name="com.ss.android.ugc.aweme" />
+    </queries>
+    <application android:label="评论过滤" android:description="@string/module_description"
+        android:icon="@drawable/ic_filter" android:dataExtractionRules="@xml/data_extraction_rules"
+        android:theme="@style/AppTheme" android:allowBackup="false" android:fullBackupContent="@xml/backup_rules"
+        android:supportsRtl="true">
+        <meta-data android:name="xposedmodule" android:value="true" />
+        <meta-data android:name="xposeddescription" android:value="快手、哔哩哔哩、哔哩哔哩 HD、小红书、抖音主评论过滤，独立配置" />
+        <meta-data android:name="xposedminversion" android:value="82" />
+        <meta-data android:name="xposedscope" android:resource="@array/xposed_scope" />
+        <activity android:name=".ui.MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <!-- Read-only Binder UID allowlist is enforced in ConfigProvider.query(). -->
+        <provider android:name=".config.ConfigProvider" android:authorities="io.github.kuaishou.filter.config" tools:ignore="ExportedContentProvider"
+            android:exported="true" android:grantUriPermissions="false" />
+    </application>
+</manifest>

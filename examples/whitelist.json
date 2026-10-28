@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "enabled": true,
+  "mode": "WHITELIST_ONLY",
+  "ignoreKeywordCase": true,
+  "blacklist": [],
+  "whitelist": [
+    {"id": "保留广东或浙江", "locations": ["广东", "浙江"]},
+    {"id": "保留含有教程的评论", "keywords": ["教程"]},
+    {"id": "保留未知性别", "genders": ["UNKNOWN"]}
+  ]
+}

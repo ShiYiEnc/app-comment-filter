@@ -1,0 +1,78 @@
+# 评论过滤 · LSPosed 模块
+
+针对用户提供的五款 APK 建立的 Android 工程。当前模块 **0.2.0**，目标环境为 **Android 16 + LSPosed 2.1.0**。模块包名保持 `io.github.kuaishou.filter`，可覆盖原版安装并保留原快手规则。
+
+| 应用 | 支持版本 | versionCode | 包名 |
+| --- | --- | --- | --- |
+| 快手 | 14.9.20.50799 | 50799 | com.smile.gifmaker |
+| 哔哩哔哩 | 9.17.0 | 9170300 | tv.danmaku.bili |
+| 哔哩哔哩 HD | 2.5.1 | 2051100 | tv.danmaku.bilibilihd |
+| 小红书 | 9.52.0 | 9520807 | com.xingin.xhs |
+| 抖音 | 40.9.0 | 400901 | com.ss.android.ugc.aweme |
+
+快手旧适配有用户设备反馈。四个新增适配已完成 APK 静态核对、实现和离线测试，尚待 Android 16 + LSPosed 真机验收。**小红书当前适配读取的评论模型没有性别字段，统一按“未知”匹配；用户资料模型存在性别，但尚未接入关联，详见 [复核记录](docs/XHS_GENDER_RECHECK.md)。** 新应用沿用原生分页，尚未增加快手式自动补页；混排卡片、独立详情及 Web/直播/电商等页面不保证覆盖。具体证据与边界见各应用分析文档。
+
+## 已实现
+
+- 按评论显示的 IP 属地、正文关键词、用户性别配置规则。
+- 顶部切换应用；五个应用分别保存过滤开关、黑白名单模式、规则、大小写选项；普通哔哩哔哩与 HD 也是两个独立配置。
+- 黑名单和白名单作为两个互斥模式分别保存，每次只执行选定模式。
+- 只过滤主评论；楼中楼回复不独立参与规则判定。
+- 支持未知属地、未知性别作为条件。性别只读取服务端字段。
+- 同条规则中不同字段 AND；同字段多值 OR；多条规则 OR。
+- 原生配置页：手动保存、规则增删改与启停、删除撤销、模式切换和深色模式。“更多”中提供大小写选项、高级 JSON 和帮助。
+- 配置异步同步到对应宿主进程；Provider 校验调用 UID 只能读取自己的配置。无联网权限，无额外配置文件存储权限。
+- 快手过滤后可见主评论较少或新一页没有新增可见主评论时，通过快手原有分页入口补页。每轮最多自动补 5 页，之后可点评论列表底部的“继续加载评论”；加载期间按钮禁用。遇到末尾、错误或重复游标则停止。
+
+首次安装默认关闭过滤。空或全部停用的白名单保留全部评论，并在界面明确提示。
+
+## 安装测试
+
+1. 安装 `app/build/outputs/apk/debug/app-debug.apk`。
+2. 在 LSPosed 中启用“评论过滤”，作用域勾选需要过滤的应用。
+3. 打开模块，从顶部选择应用，添加规则，点“完成”返回首页。
+4. 打开该应用的过滤开关，点击“保存规则”。首次启用模块后强制停止并重新打开对应应用，打开评论区。
+5. 规则、模式及开关修改后都需点击“保存规则”，再刷新/重新进入评论区。已在快手界面中的列表不会自动重绘。
+
+编辑和切换应用过程中不写入规则配置；各应用的未保存草稿和删除撤销分别保留。保存按钮只保存当前应用。未保存的修改在界面重建时保留，强制停止模块后重新打开则读取上次保存的配置。删除可在“更多 → 撤销删除”恢复。
+
+从旧版更新时直接覆盖安装，旧规则只归入快手，其他应用默认关闭；随后强制停止作用域内需要使用的应用并重新打开，使新 Hook 生效。
+
+多应用验收步骤见 [0.2.0 测试指南](docs/MULTI_APP_TESTING.md)，历史快手专项见 [快手真机测试指南](docs/DEVICE_TESTING.md)。
+
+回复不独立匹配规则。主评论过滤与对应回复呈现的具体边界见各应用分析记录；未知形状保留原条目。
+
+## 构建
+
+使用 JDK 17、Android SDK Platform 36.1、SDK Build Tools 35.0.0 或可兼容的已安装版本。构建版本固定为 AGP 8.13.2、Gradle 8.13，目标 SDK 36、最低 SDK 28。
+
+Android Studio 打开此目录，配置 SDK 并同步。也可以在 Windows PowerShell 执行：
+
+```powershell
+# local.properties 的示例内容：sdk.dir=D\:/AndroidSDK
+.\gradlew.bat :core:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
+```
+
+首次构建需要下载 Google Maven、Maven Central 和 Xposed API 依赖。Gradle Wrapper 包含发行版 SHA-256 校验。不要把 `local.properties`、原始 APK、分析工具和构建输出提交到代码仓库。
+
+## 工程
+
+| 路径 | 职责 |
+| --- | --- |
+| `core/` | 规则引擎、快手分页策略、保存队列及 49 项测试 |
+| `app/.../ui/` | 原生配置界面 |
+| `app/.../config/` | 私有配置存储、受限只读 Provider、后台规则加载 |
+| `app/.../hook/` | Xposed 入口、版本适配、列表副本过滤和分页生命周期协调 |
+| `app/src/test/` | 36 项配置隔离及适配层测试 |
+| `docs/DESIGN.md` | 确认需求、规则语义、架构及扩展边界 |
+| `docs/APK_ANALYSIS.md` | APK 身份、Hook 证据及尚未验证的内容 |
+| `docs/BILIBILI_ANALYSIS.md` | 哔哩哔哩和 HD 的实际模型/消费者及适配边界 |
+| `docs/XIAOHONGSHU_ANALYSIS.md` | 小红书原生列表投影、未知性别及差量刷新处理 |
+| `docs/DOUYIN_ANALYSIS.md` | 抖音首次与后续响应分发、响应副本及分页元数据保护 |
+| `docs/UI_0.1.3.md` | 配置界面设计与验证记录 |
+| `examples/` | 可粘贴到高级 JSON 编辑器的规则示例 |
+| `scripts/` | 可选离线 DEX/JADX 分析辅助脚本，不参与模块运行 |
+
+仅放行表中精确版本号和 versionCode，其他版本不会安装过滤 Hook。宿主热更新仍可能改变同版本的运行行为，详见分析文档。
+
+接口选择参考：[Xposed API 82](https://api.xposed.info/)、[LSPosed 模块开发说明](https://github.com/LSPosed/LSPosed/wiki/Develop-Xposed-Modules-Using-Modern-Xposed-API)、[AGP 8.13 兼容信息](https://developer.android.com/build/releases/agp-8-13-0-release-notes)。本工程使用传统 Xposed API 82 和独立 Provider，不依赖扩展版 XSharedPreferences。
