@@ -20,7 +20,7 @@ args = parser.parse_args()
 if not args.serial.startswith('emulator-'):
     raise SystemExit('Use an explicitly selected emulator')
 ADB = r'D:\AndroidSDK\platform-tools\adb.exe'
-PKG = 'io.github.kuaishou.filter'
+PKG = 'io.github.appcommentfilter'
 APPS = {
     '快手': 'com.smile.gifmaker', '哔哩哔哩': 'tv.danmaku.bili',
     '哔哩哔哩 HD': 'tv.danmaku.bilibilihd', '小红书': 'com.xingin.xhs',
@@ -268,7 +268,7 @@ try:
     results['dark_mode_recreation_retains_selected_profile'] = True
 
     denied = adb('shell', 'content', 'query', '--uri',
-                 'content://io.github.kuaishou.filter.config/rules/' + APPS['抖音'], check=False)
+                 'content://io.github.appcommentfilter.config/rules/' + APPS['抖音'], check=False)
     assert b'SecurityException' in denied.stdout + denied.stderr
     results['unrelated_shell_uid_cannot_query_profile'] = True
     results['device_api'] = int(adb('shell', 'getprop', 'ro.build.version.sdk').stdout)

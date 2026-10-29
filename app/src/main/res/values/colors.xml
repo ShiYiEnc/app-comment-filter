@@ -6,4 +6,5 @@
     <color name="on_accent">#FFFFFF</color><color name="error">#B3261E</color>
     <color name="save_background">#DCEDE3</color>
     <color name="input_border">#DDE6DF</color>
+    <color name="ic_launcher_background">#176B54</color>
 </resources>

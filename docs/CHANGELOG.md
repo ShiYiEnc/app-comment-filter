@@ -1,5 +1,12 @@
 # 更新记录
 
+## 0.2.2（versionCode 10，2026-10-29）
+
+- 模块安装包、namespace、Java 源码和测试包名统一为 `io.github.appcommentfilter`，Gradle 工程名更新为 `AppCommentFilter`。
+- Provider authority 更新为 `io.github.appcommentfilter.config`，Manifest 根据 applicationId 生成；同步 LSPosed 入口和模拟器脚本。
+- 新启动图标采用森林绿底、评论气泡与三条递减筛选线，提供自适应、圆形及 Android 13+ 单色主题支持。
+- 包名变更后作为新应用安装，旧包配置不自动转移；README 补充手动迁移和重新启用 LSPosed 的步骤。
+
 ## 0.2.1（versionCode 9，2026-10-29）
 
 - 小红书新增独立性别过滤开关，默认关闭，遵循手动保存；关闭时隐藏规则表单的性别项，保留并暂停已有性别条件，混合规则其余条件继续执行。

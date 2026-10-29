@@ -9,7 +9,7 @@ parser.add_argument('--out', required=True)
 args = parser.parse_args()
 if not args.serial.startswith('emulator-'): raise SystemExit('Disposable emulator required')
 ADB = r'D:\AndroidSDK\platform-tools\adb.exe'
-PKG = 'io.github.kuaishou.filter'
+PKG = 'io.github.appcommentfilter'
 out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
 
 def adb(*command, check=True):

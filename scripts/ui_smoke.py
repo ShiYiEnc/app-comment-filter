@@ -20,7 +20,7 @@ args = parser.parse_args()
 if not args.serial.startswith('emulator-'):
     raise SystemExit('Use an explicitly selected disposable emulator')
 ADB = r'D:\AndroidSDK\platform-tools\adb.exe'
-PKG = 'io.github.kuaishou.filter'
+PKG = 'io.github.appcommentfilter'
 out = Path(args.out)
 out.mkdir(parents=True, exist_ok=True)
 results = []

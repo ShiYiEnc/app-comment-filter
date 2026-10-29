@@ -9,5 +9,5 @@ dependencyResolutionManagement {
         maven("https://api.xposed.info/")
     }
 }
-rootProject.name = "KuaishouCommentFilter"
+rootProject.name = "AppCommentFilter"
 include(":app", ":core")

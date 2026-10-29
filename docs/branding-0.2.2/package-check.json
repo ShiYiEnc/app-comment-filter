@@ -1,0 +1,7 @@
+{
+  "application_id": "io.github.appcommentfilter",
+  "provider_authority": "io.github.appcommentfilter.config",
+  "xposed_entry": "io.github.appcommentfilter.hook.ModuleEntry",
+  "module_classes": 172,
+  "old_namespace_absent": true
+}

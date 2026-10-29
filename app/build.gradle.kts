@@ -1,15 +1,15 @@
 plugins { id("com.android.application") }
 
 android {
-    namespace = "io.github.kuaishou.filter"
+    namespace = "io.github.appcommentfilter"
     compileSdk = 36
     compileSdkMinor = 1
     defaultConfig {
-        applicationId = "io.github.kuaishou.filter"
+        applicationId = "io.github.appcommentfilter"
         minSdk = 28
         targetSdk = 36
-        versionCode = 9
-        versionName = "0.2.1"
+        versionCode = 10
+        versionName = "0.2.2"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

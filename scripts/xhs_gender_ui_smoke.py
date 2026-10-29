@@ -12,7 +12,7 @@ p.add_argument('--serial', required=True); p.add_argument('--apk', required=True
 a = p.parse_args()
 if not a.serial.startswith('emulator-'): raise SystemExit('An explicit emulator serial is required')
 ADB = r'D:\AndroidSDK\platform-tools\adb.exe'
-PKG = 'io.github.kuaishou.filter'; XHS = 'com.xingin.xhs'
+PKG = 'io.github.appcommentfilter'; XHS = 'com.xingin.xhs'
 out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
 results = {}; backup = 'shared_prefs.gender-smoke-' + uuid.uuid4().hex
 isolated = had_prefs = False

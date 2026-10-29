@@ -1,0 +1,25 @@
+{
+  "version": "0.2.2",
+  "version_code": 10,
+  "application_id": "io.github.appcommentfilter",
+  "namespace": "io.github.appcommentfilter",
+  "provider_authority": "io.github.appcommentfilter.config",
+  "tests": 118,
+  "failures": 0,
+  "lint": [
+    {
+      "id": "OldTargetApi",
+      "severity": "Warning"
+    },
+    {
+      "id": "AndroidGradlePluginVersion",
+      "severity": "Warning"
+    }
+  ],
+  "apk_sha256": "ff3e047795bdb06b3fa84e0c03cf2023b82fb5b4acd38da900bfb67cbf5cc3b6",
+  "signature_v2_verified": true,
+  "new_and_old_packages_coexist_verified": true,
+  "old_java_namespace_absent_from_dex": true,
+  "ui_smoke": "branding-0.2.2/smoke/results.json",
+  "host_hooks_tested": false
+}
