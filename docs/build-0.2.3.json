@@ -1,0 +1,25 @@
+{
+  "version": "0.2.3",
+  "version_code": 11,
+  "application_id": "io.github.appcommentfilter",
+  "apk_sha256": "f65b320b4d7fe4c5efe2f3b3534462e1fb1327c13875705f9e60721e118f0c0a",
+  "signature_v2_verified": true,
+  "signing_certificate_sha256": "4e8e88c4b8ccdb16d8cd8027933dc0ff497de9bfecc15fed03e270ed61f465df",
+  "android_upgrade_install_success": true,
+  "previous_package_manager_version_code": 10,
+  "installed_version_code": 11,
+  "source_icon_sha256": "44e80e2fda8c4e7f17bb123fbadeb014316d6d6b92d52091ad23008f341a144f",
+  "source_paths_verified": 3,
+  "lint": [
+    {
+      "id": "OldTargetApi",
+      "severity": "Warning"
+    },
+    {
+      "id": "AndroidGradlePluginVersion",
+      "severity": "Warning"
+    }
+  ],
+  "unit_tests_rerun": false,
+  "change_scope": "icon and version resources only"
+}

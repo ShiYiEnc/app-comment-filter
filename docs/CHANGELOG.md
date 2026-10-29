@@ -1,5 +1,10 @@
 # 更新记录
 
+## 0.2.3（versionCode 11，2026-10-29）
+
+- 采用用户提供的 `ic_filter.xml`：原文件为 Android 编译后的二进制 XML，解码为工程矢量资源，保留原始 `#B93262` 背景、白色评论气泡和两条直角筛选线。
+- 自适应与单色图标同步使用相同气泡/筛选线几何；包名与过滤功能不变，可覆盖 0.2.2 安装。
+
 ## 0.2.2（versionCode 10，2026-10-29）
 
 - 模块安装包、namespace、Java 源码和测试包名统一为 `io.github.appcommentfilter`，Gradle 工程名更新为 `AppCommentFilter`。

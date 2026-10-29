@@ -2,7 +2,11 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <!-- Comment bubble with three transparent filter bars; stays inside the adaptive safe area. -->
-    <path android:fillColor="#F4F6F4" android:fillType="evenOdd"
-        android:pathData="M36,30H72C76.42,30 80,33.58 80,38V64C80,68.42 76.42,72 72,72H50L38,80V72H36C31.58,72 28,68.42 28,64V38C28,33.58 31.58,30 36,30Z M41,41H67C68.1,41 69,41.9 69,43C69,44.1 68.1,45 67,45H41C39.9,45 39,44.1 39,43C39,41.9 39.9,41 41,41Z M45,51H63C64.1,51 65,51.9 65,53C65,54.1 64.1,55 63,55H45C43.9,55 43,54.1 43,53C43,51.9 43.9,51 45,51Z M50,61H58C59.1,61 60,61.9 60,63C60,64.1 59.1,65 58,65H50C48.9,65 48,64.1 48,63C48,61.9 48.9,61 50,61Z" />
+    <!-- Same supplied bubble and two bars, centered in the adaptive icon safe area.
+         Transparent bars retain their shape when Android applies a monochrome tint. -->
+    <group android:scaleX="1.5" android:scaleY="1.5"
+        android:translateX="18" android:translateY="18">
+        <path android:fillColor="#FFFFFF" android:fillType="evenOdd"
+            android:pathData="M13,12 L35,12 Q38,12 38,15 L38,30 Q38,33 35,33 L23,33 L15,39 L15,33 L13,33 Q10,33 10,30 L10,15 Q10,12 13,12 Z M16,18 L32,18 L32,21 L16,21 Z M19,24 L29,24 L29,27 L19,27 Z" />
+    </group>
 </vector>

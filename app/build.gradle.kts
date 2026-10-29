@@ -8,8 +8,8 @@ android {
         applicationId = "io.github.appcommentfilter"
         minSdk = 28
         targetSdk = 36
-        versionCode = 10
-        versionName = "0.2.2"
+        versionCode = 11
+        versionName = "0.2.3"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
