@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <item type="id" name="app_selector" />
+    <item type="id" name="xhs_gender_settings" /><item type="id" name="xhs_gender_filter_enabled" />
+    <item type="id" name="xhs_gender_filter_note" /><item type="id" name="rule_gender_section" />
+    <item type="id" name="rule_gender_male" /><item type="id" name="rule_gender_female" /><item type="id" name="rule_gender_unknown" />
     <item type="id" name="filter_enabled" /><item type="id" name="mode_blacklist" />
     <item type="id" name="mode_whitelist" /><item type="id" name="rule_list" />
     <item type="id" name="add_rule" />

@@ -7,6 +7,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.SystemClock;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.CopyOnWriteArrayList;
 import io.github.kuaishou.filter.core.RuleEngine;
 import de.robv.android.xposed.XposedBridge;
 
@@ -21,6 +22,7 @@ public final class RemoteConfig {
     private volatile long lastAttempt = -5000;
     private long revision = -1;
     private boolean failureLogged;
+    private final CopyOnWriteArrayList<Runnable> listeners = new CopyOnWriteArrayList<>();
 
     public RemoteConfig(Context context) {
         this(context, HostApp.fromPackage(context.getPackageName()));
@@ -53,6 +55,19 @@ public final class RemoteConfig {
         return engine;
     }
 
+    /** Listeners run on the config worker; host UI callbacks must post to their main thread. */
+    public void addListener(Runnable listener) {
+        listeners.add(listener);
+        worker.post(() -> {
+            if (listeners.contains(listener)) {
+                try { listener.run(); }
+                catch (RuntimeException error) { XposedBridge.log(logPrefix + "Config listener unavailable"); }
+            }
+        });
+    }
+
+    public void removeListener(Runnable listener) { listeners.remove(listener); }
+
     private void refresh() {
         lastAttempt = SystemClock.elapsedRealtime();
         try (Cursor cursor = context.getContentResolver().query(uri, null, null, null, null)) {
@@ -64,6 +79,10 @@ public final class RemoteConfig {
             revision = nextRevision;
             failureLogged = false;
             XposedBridge.log(logPrefix + "Rules loaded, revision=" + revision);
+            for (Runnable listener : listeners) {
+                try { listener.run(); }
+                catch (RuntimeException error) { XposedBridge.log(logPrefix + "Config listener unavailable"); }
+            }
         } catch (RuntimeException e) {
             if (!failureLogged) {
                 failureLogged = true;

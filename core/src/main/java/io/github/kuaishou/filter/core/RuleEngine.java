@@ -25,21 +25,24 @@ public final class RuleEngine {
     private static final int MAX_RULES = 500;
     private static final int MAX_VALUES = 100;
     private static final Set<String> ROOT_KEYS = keysOf("schemaVersion", "enabled",
-            "mode", "ignoreKeywordCase", "blacklist", "whitelist");
+            "mode", "ignoreKeywordCase", "resolveProfileGender", "blacklist", "whitelist");
     private static final Set<String> RULE_KEYS = keysOf("id", "enabled", "locations", "keywords",
             "genders", "unknownLocation");
 
     private final boolean enabled;
     private final boolean ignoreKeywordCase;
     private final boolean whitelistOnly;
+    private final boolean resolveProfileGender;
     private final List<Rule> blacklist;
     private final List<Rule> whitelist;
 
     private RuleEngine(boolean enabled, boolean ignoreKeywordCase,
-                       boolean whitelistOnly, List<Rule> blacklist, List<Rule> whitelist) {
+                       boolean whitelistOnly, boolean resolveProfileGender,
+                       List<Rule> blacklist, List<Rule> whitelist) {
         this.enabled = enabled;
         this.ignoreKeywordCase = ignoreKeywordCase;
         this.whitelistOnly = whitelistOnly;
+        this.resolveProfileGender = resolveProfileGender;
         this.blacklist = Collections.unmodifiableList(new ArrayList<>(blacklist));
         this.whitelist = Collections.unmodifiableList(new ArrayList<>(whitelist));
     }
@@ -51,6 +54,18 @@ public final class RuleEngine {
     }
 
     public boolean enabled() { return enabled; }
+
+    /** Opt-in used by hosts that must load separate user profiles for gender. */
+    public boolean resolveProfileGender() { return resolveProfileGender; }
+
+    /** Whether the enabled mode contains a gender condition worth resolving. */
+    public boolean usesGenderRules() {
+        if (!enabled) return false;
+        for (Rule rule : whitelistOnly ? whitelist : blacklist) {
+            if (!rule.genders.isEmpty()) return true;
+        }
+        return false;
+    }
 
     /** Reject invalid input before replacing a running engine. Missing options use safe defaults. */
     public static RuleEngine compileJson(String json) {
@@ -82,7 +97,7 @@ public final class RuleEngine {
             List<Rule> white = rules(root, "whitelist", ids, ignoreCase);
             if (ids.size() > MAX_RULES) throw invalid("规则总数最多为 " + MAX_RULES);
             return new RuleEngine(bool(root, "enabled", false), ignoreCase,
-                    mode.equals("WHITELIST_ONLY"), black, white);
+                    mode.equals("WHITELIST_ONLY"), bool(root, "resolveProfileGender", false), black, white);
         } catch (IllegalArgumentException e) {
             throw e;
         } catch (Exception e) {
@@ -91,23 +106,56 @@ public final class RuleEngine {
     }
 
     public Decision evaluate(Comment comment) {
+        return evaluate(comment, true);
+    }
+
+    /**
+     * Keeps an unresolved profile distinct from a resolved UNKNOWN gender.
+     * Genderless blacklist rules still run; a pending whitelist can only retain
+     * the comment until every possibly matching gender condition is known.
+     * Hosts decide whether profile resolution is enabled before calling this.
+     */
+    public Decision evaluatePendingGender(Comment comment) {
+        Objects.requireNonNull(comment, "comment");
+        if (!enabled) return keep("DISABLED");
+        if (comment.reply()) return keep("REPLY_EXCLUDED");
+        if (!usesGenderRules()) return evaluate(comment);
+        if (whitelistOnly) return keep("GENDER_PENDING");
+        String location = normalizeLocation(comment.location());
+        String text = normalizeKeyword(comment.text(), ignoreKeywordCase);
+        for (Rule rule : blacklist) {
+            if (rule.genders.isEmpty() && rule.matches(text, location, comment.gender(), true)) {
+                return new Decision(true, "BLACKLIST_MATCH", rule.id);
+            }
+        }
+        return keep("GENDER_PENDING");
+    }
+
+    /**
+     * A host can suspend the gender dimension while keeping its saved conditions.
+     * Gender-only rules then become inactive, rather than matching every comment.
+     */
+    public Decision evaluate(Comment comment, boolean includeGender) {
         Objects.requireNonNull(comment, "comment");
         if (!enabled) return keep("DISABLED");
         if (comment.reply()) return keep("REPLY_EXCLUDED");
         String location = normalizeLocation(comment.location());
         String text = normalizeKeyword(comment.text(), ignoreKeywordCase);
         if (whitelistOnly) {
+            boolean effectiveRule = false;
             for (Rule rule : whitelist) {
-                if (rule.matches(text, location, comment.gender())) {
+                if (!rule.appliesWith(includeGender)) continue;
+                effectiveRule = true;
+                if (rule.matches(text, location, comment.gender(), includeGender)) {
                     return new Decision(false, "WHITELIST_MATCH", rule.id);
                 }
             }
             // Empty (or entirely disabled) whitelist must never blank the comment section.
-            if (whitelist.isEmpty()) return keep("EMPTY_WHITELIST");
+            if (!effectiveRule) return keep("EMPTY_WHITELIST");
             return new Decision(true, "WHITELIST_MISS", null);
         }
         for (Rule rule : blacklist) {
-            if (rule.matches(text, location, comment.gender())) {
+            if (rule.appliesWith(includeGender) && rule.matches(text, location, comment.gender(), includeGender)) {
                 return new Decision(true, "BLACKLIST_MATCH", rule.id);
             }
         }
@@ -244,10 +292,14 @@ public final class RuleEngine {
             this.unknownLocation = unknownLocation;
         }
 
-        private boolean matches(String text, String location, Gender gender) {
+        private boolean appliesWith(boolean includeGender) {
+            return includeGender || !locations.isEmpty() || unknownLocation || !keywords.isEmpty();
+        }
+
+        private boolean matches(String text, String location, Gender gender, boolean includeGender) {
             if ((!locations.isEmpty() || unknownLocation)
                     && !(location.isEmpty() ? unknownLocation : locations.contains(location))) return false;
-            if (!genders.isEmpty() && !genders.contains(gender)) return false;
+            if (includeGender && !genders.isEmpty() && !genders.contains(gender)) return false;
             if (!keywords.isEmpty()) {
                 for (String keyword : keywords) if (text.contains(keyword)) return true;
                 return false;

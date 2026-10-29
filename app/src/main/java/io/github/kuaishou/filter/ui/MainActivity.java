@@ -7,12 +7,15 @@ import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
+import android.graphics.drawable.StateListDrawable;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
+import android.view.WindowManager;
+import android.view.ContextThemeWrapper;
 import android.widget.*;
 import java.util.function.Consumer;
 import org.json.JSONArray;
@@ -32,9 +35,9 @@ public final class MainActivity extends Activity {
     private boolean observing;
     private JSONObject settings;
     private String visibleJson;
-    private LinearLayout ruleList;
+    private LinearLayout ruleList, genderSettings;
     private TextView modeHint, ruleHeading;
-    private Switch master;
+    private Switch master, profileGender;
     private Button blacklistTab, whitelistTab, saveButton, appSelector;
     private boolean saveRequested;
     private String requestedJson;
@@ -106,17 +109,19 @@ public final class MainActivity extends Activity {
 
     private void selectApp() {
         HostApp[] apps = HostApp.values();
-        String[] names = new String[apps.length];
-        int selected = 0;
-        for (int i = 0; i < apps.length; i++) {
-            names[i] = apps[i].displayName;
-            if (apps[i] == host) selected = i;
+        LinearLayout options = dialogForm();
+        AlertDialog dialog = dialogBuilder("选择应用").setView(dialogScroll(options))
+                .setNegativeButton("取消", null).create();
+        for (HostApp app : apps) {
+            RadioButton option = new RadioButton(this); option.setText(app.displayName);
+            option.setTextSize(16); option.setTextColor(color(R.color.ink));
+            option.setButtonTintList(controlTint()); option.setChecked(app == host);
+            option.setMinHeight(dp(54)); option.setPadding(dp(12), dp(6), dp(12), dp(6));
+            option.setBackground(ripple(app == host ? R.color.well : R.color.surface, 10));
+            option.setOnClickListener(v -> { if (app != host) switchApp(app); dialog.dismiss(); });
+            margin(options, option, 3, 3);
         }
-        new AlertDialog.Builder(this).setTitle("选择应用")
-                .setSingleChoiceItems(names, selected, (dialog, which) -> {
-                    if (apps[which] != host) switchApp(apps[which]);
-                    dialog.dismiss();
-                }).setNegativeButton("取消", null).show();
+        dialog.setOnShowListener(d -> styleDialog(dialog)); dialog.show();
     }
 
     private void switchApp(HostApp next) {
@@ -182,6 +187,23 @@ public final class MainActivity extends Activity {
         master.setOnCheckedChangeListener((v, checked) -> { if (!syncing) change("enabled", checked); });
         body.addView(activation);
 
+        genderSettings = column(); genderSettings.setId(R.id.xhs_gender_settings);
+        genderSettings.setPadding(dp(16), dp(12), dp(12), dp(14));
+        genderSettings.setBackground(shape(R.color.surface, 14));
+        LinearLayout genderRow = new LinearLayout(this); genderRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView genderTitle = text("启用性别过滤", 17, R.color.ink, true);
+        genderRow.addView(genderTitle, new LinearLayout.LayoutParams(0, -2, 1));
+        profileGender = new Switch(this); profileGender.setId(R.id.xhs_gender_filter_enabled);
+        profileGender.setSaveEnabled(false); profileGender.setMinHeight(dp(48));
+        profileGender.setContentDescription("启用小红书性别过滤");
+        profileGender.setOnCheckedChangeListener((view, checked) -> { if (!syncing) change("resolveProfileGender", checked); });
+        genderRow.addView(profileGender); genderSettings.addView(genderRow);
+        TextView genderNote = text("原生评论不提供性别，开启后需额外加载作者资料。加载期间先保留评论，失败或未填写按未知处理。", 14, R.color.muted, false);
+        genderNote.setId(R.id.xhs_gender_filter_note); genderNote.setLineSpacing(dp(3), 1);
+        genderNote.setPadding(0, dp(2), dp(4), 0); genderSettings.addView(genderNote);
+        genderRow.setOnClickListener(v -> profileGender.setChecked(!profileGender.isChecked()));
+        margin(body, genderSettings, 12, 0);
+
         margin(body, text("过滤模式", 14, R.color.muted, true), 24, 8);
         LinearLayout modes = new LinearLayout(this); modes.setPadding(dp(4), dp(4), dp(4), dp(4));
         modes.setBackground(shape(R.color.well, 12));
@@ -223,19 +245,26 @@ public final class MainActivity extends Activity {
         appSelector.setText(getString(R.string.app_selector_label, host.displayName));
         appSelector.setContentDescription("选择应用，当前：" + host.displayName);
         master.setContentDescription("启用" + host.displayName + "评论过滤");
-        syncing = true; master.setChecked(settings.optBoolean("enabled", false)); syncing = false;
+        syncing = true;
+        master.setChecked(settings.optBoolean("enabled", false));
+        profileGender.setChecked(settings.optBoolean("resolveProfileGender", false));
+        syncing = false;
+        genderSettings.setVisibility(host == HostApp.XIAOHONGSHU ? View.VISIBLE : View.GONE);
         boolean black = activeKey().equals("blacklist");
         tab(blacklistTab, black); tab(whitelistTab, !black);
         JSONArray entries = array(settings, activeKey());
         boolean hasEnabled = false;
-        for (int i = 0; i < entries.length(); i++) if (entries.optJSONObject(i).optBoolean("enabled", true)) hasEnabled = true;
-        modeHint.setText(black ? "隐藏命中的评论" : !hasEnabled ? "无启用规则时显示全部评论" : "只显示命中的评论");
+        for (int i = 0; i < entries.length(); i++) {
+            JSONObject rule = entries.optJSONObject(i);
+            if (rule != null && rule.optBoolean("enabled", true) && hasConditions(rule, genderControlsAvailable())) hasEnabled = true;
+        }
+        modeHint.setText(!hasEnabled ? "无启用条件时显示全部评论" : black ? "隐藏命中的评论" : "只显示命中的评论");
         ruleHeading.setText(getString(R.string.rule_heading, black ? "黑名单" : "白名单", entries.length()));
         ruleList.removeAllViews();
         if (entries.length() == 0) {
             LinearLayout empty = column(); empty.setPadding(dp(4), dp(24), dp(4), dp(24));
             empty.addView(text("暂无规则", 18, R.color.ink, false));
-            TextView hint = text("添加属地、关键词或性别条件", 14, R.color.muted, false);
+            TextView hint = text(genderControlsAvailable() ? "添加属地、关键词或性别条件" : "添加属地或关键词条件", 14, R.color.muted, false);
             hint.setPadding(0, dp(8), 0, 0); empty.addView(hint); ruleList.addView(empty);
         }
         for (int i = 0; i < entries.length(); i++) renderRule(activeKey(), i, entries.optJSONObject(i));
@@ -280,20 +309,23 @@ public final class MainActivity extends Activity {
     private void editRule(String key, int index) { editRule(key, index, null); }
     private void editRule(String key, int index, Bundle restored) {
         JSONObject old = index < 0 ? new JSONObject() : array(settings, key).optJSONObject(index);
-        LinearLayout form = column(); form.setPadding(dp(22), dp(4), dp(22), dp(8));
+        LinearLayout form = dialogForm();
         EditText name = field(form, "名称", "可选，例如：屏蔽推广", old.optString("id"), false); name.setId(R.id.rule_name);
         EditText locations = field(form, "IP 属地", "每行一个，如：广东", join(old.optJSONArray("locations")), true);
         locations.setId(R.id.rule_locations);
         CheckBox unknown = check(form, "包含未知属地", old.optBoolean("unknownLocation"));
         EditText words = field(form, "评论关键词", "每行一个", join(old.optJSONArray("keywords")), true); words.setId(R.id.rule_keywords);
-        margin(form, text("用户性别", 14, R.color.muted, true), 12, 0);
-        LinearLayout genders = new LinearLayout(this); form.addView(genders);
+        LinearLayout genderFields = column(); genderFields.setId(R.id.rule_gender_section);
+        genderFields.addView(text("用户性别", 14, R.color.muted, true));
+        LinearLayout genders = new LinearLayout(this); margin(genderFields, genders, 8, 0);
         String selected = old.optJSONArray("genders") == null ? "" : old.optJSONArray("genders").toString();
-        CheckBox male = check(genders, "男", selected.contains("\"M\""));
-        CheckBox female = check(genders, "女", selected.contains("\"F\""));
-        CheckBox unknownGender = check(genders, "未知", selected.contains("\"UNKNOWN\""));
-        if (host == HostApp.XIAOHONGSHU) {
-            margin(form, text("此版本评论未提供性别，统一按“未知”匹配。", 14, R.color.muted, false), 4, 0);
+        CheckBox male = genderChoice(genders, "男", selected.contains("\"M\"")); male.setId(R.id.rule_gender_male);
+        CheckBox female = genderChoice(genders, "女", selected.contains("\"F\"")); female.setId(R.id.rule_gender_female);
+        CheckBox unknownGender = genderChoice(genders, "未知", selected.contains("\"UNKNOWN\"")); unknownGender.setId(R.id.rule_gender_unknown);
+        if (genderControlsAvailable()) {
+            margin(form, genderFields, 16, 0);
+            if (host == HostApp.XIAOHONGSHU)
+                margin(genderFields, text("按作者资料中的性别匹配；资料加载失败或未填写时按未知处理。", 14, R.color.muted, false), 8, 0);
         }
         if (restored != null) {
             name.setText(restored.getString("name")); locations.setText(restored.getString("locations")); words.setText(restored.getString("words"));
@@ -302,8 +334,8 @@ public final class MainActivity extends Activity {
         }
         margin(form, text("留空不限；填写的条件需同时满足。", 14, R.color.muted, false), 8, 0);
         TextView error = text("", 14, R.color.error, false); error.setVisibility(View.GONE); form.addView(error);
-        ScrollView scroll = new ScrollView(this); scroll.addView(form);
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle(index < 0 ? "添加规则" : "编辑规则")
+        ScrollView scroll = dialogScroll(form);
+        AlertDialog dialog = dialogBuilder(index < 0 ? "添加规则" : "编辑规则")
                 .setView(scroll).setNegativeButton("取消", null).setPositiveButton("完成", null).create();
         editorSnapshot = () -> {
             Bundle saved = new Bundle(); saved.putString("key", key); saved.putInt("index", index);
@@ -315,14 +347,18 @@ public final class MainActivity extends Activity {
         activeEditor = dialog;
         dialog.setOnDismissListener(d -> { if (activeEditor == dialog) { editorSnapshot = null; activeEditor = null; } });
         dialog.setOnShowListener(d -> {
-            dialog.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+            styleDialog(dialog);
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                 try {
                     JSONObject rule = new JSONObject(); String id = name.getText().toString().trim();
                     put(rule, "id", id.isEmpty() ? nextName() : id); put(rule, "enabled", old.optBoolean("enabled", true));
                     put(rule, "locations", lines(locations)); put(rule, "unknownLocation", unknown.isChecked()); put(rule, "keywords", lines(words));
-                    JSONArray sex = new JSONArray();
-                    if (male.isChecked()) sex.put("M"); if (female.isChecked()) sex.put("F"); if (unknownGender.isChecked()) sex.put("UNKNOWN");
+                    JSONArray sex = old.optJSONArray("genders");
+                    if (genderControlsAvailable()) {
+                        sex = new JSONArray();
+                        if (male.isChecked()) sex.put("M"); if (female.isChecked()) sex.put("F"); if (unknownGender.isChecked()) sex.put("UNKNOWN");
+                    }
+                    if (sex == null) sex = new JSONArray();
                     put(rule, "genders", sex); JSONObject candidate = copy(); JSONArray entries = array(candidate, key);
                     if (index < 0) entries.put(rule); else entries.put(index, rule);
                     apply(candidate, true); dialog.dismiss();
@@ -343,27 +379,29 @@ public final class MainActivity extends Activity {
                 .setOnMenuItemClickListener(item -> { change("ignoreKeywordCase", !settings.optBoolean("ignoreKeywordCase", true)); return true; });
         menu.getMenu().add("高级配置").setOnMenuItemClickListener(item -> { editJson(); return true; });
         menu.getMenu().add("使用说明").setOnMenuItemClickListener(item -> {
-            new AlertDialog.Builder(this).setTitle("使用说明")
-                    .setMessage("每个应用分别保存开关、模式和规则。切换应用保留本次未保存的编辑，强制停止模块后恢复上次保存的配置。\n\n黑名单隐藏命中评论，白名单只显示命中评论。\n\n同一规则内的条件需同时满足；多条规则命中任意一条即可。\n\n仅过滤主评论。修改后点击保存规则，再刷新对应应用评论区。首次启用需在 LSPosed 勾选对应应用并重启该应用。\n\n属地、性别以评论接口返回为准，未提供的字段按未知处理。\n\n模块 " + BuildConfig.VERSION_NAME + " · " + host.displayName + " " + host.versionName)
-                    .setPositiveButton("知道了", null).show(); return true;
+            LinearLayout help = dialogForm();
+            TextView body = text("每个应用分别保存开关、模式和规则。切换应用保留本次未保存的编辑，强制停止模块后恢复上次保存的配置。\n\n黑名单隐藏命中评论，白名单只显示命中评论。同一规则内的条件需同时满足；多条规则命中任意一条即可。\n\n仅过滤主评论。修改后点击保存规则，再刷新对应应用评论区。首次启用需在 LSPosed 勾选对应应用并重启该应用。\n\n小红书原生评论不提供性别；开启性别过滤后，需要额外加载作者资料。加载期间先保留评论，失败或未填写按未知处理。关闭后，已有性别条件暂停，其余条件继续生效。\n\n模块 " + BuildConfig.VERSION_NAME + " · " + host.displayName + " " + host.versionName, 15, R.color.muted, false);
+            body.setLineSpacing(dp(4), 1); help.addView(body);
+            AlertDialog dialog = dialogBuilder("使用说明").setView(dialogScroll(help)).setPositiveButton("知道了", null).create();
+            dialog.setOnShowListener(d -> styleDialog(dialog)); dialog.show(); return true;
         }); menu.show();
     }
 
     private void editJson() { editJson(null); }
     private void editJson(String restored) {
-        LinearLayout form = column(); form.setPadding(dp(20), 0, dp(20), 0);
+        LinearLayout form = dialogForm();
         EditText editor = field(form, "JSON", "", restored == null ? pretty(settings) : restored, true); editor.setTypeface(Typeface.MONOSPACE); editor.setMinLines(8);
         TextView error = text("", 14, R.color.error, false); form.addView(error);
-        ScrollView scroll = new ScrollView(this); scroll.addView(form);
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle(host.displayName + " · 高级配置").setView(scroll)
+        ScrollView scroll = dialogScroll(form);
+        AlertDialog dialog = dialogBuilder("高级配置").setView(scroll)
                 .setNegativeButton("取消", null).setPositiveButton("完成", null).create();
         editorSnapshot = () -> { Bundle saved = new Bundle(); saved.putString("type", "json"); saved.putString("json", editor.getText().toString()); return saved; };
         activeEditor = dialog;
         dialog.setOnDismissListener(d -> { if (activeEditor == dialog) { editorSnapshot = null; activeEditor = null; } });
-        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+        dialog.setOnShowListener(d -> { styleDialog(dialog); dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             try { String json = editor.getText().toString(); RuleEngine.compileJson(json); apply(object(json), true); dialog.dismiss(); }
             catch (Exception e) { error.setText(e.getMessage()); }
-        })); dialog.show();
+        }); }); dialog.show();
     }
 
     private void change(String key, Object value) { JSONObject candidate = copy(); put(candidate, key, value); apply(candidate, false); }
@@ -378,7 +416,7 @@ public final class MainActivity extends Activity {
             // After process recreation the queue may have been lost before its write completed.
             boolean saved = state.error == null && state.json.equals(requestedJson);
             requestedJson = null;
-            Toast.makeText(this, saved ? host.displayName + "规则已保存" : host.displayName + "保存未完成，请重试", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, saved ? host.displayName + "规则已保存，请刷新评论区" : host.displayName + "保存未完成，请重试", Toast.LENGTH_SHORT).show();
         }
     }
     private void updateSaveButton(AutoSaveQueue.State state) {
@@ -422,19 +460,27 @@ public final class MainActivity extends Activity {
     }
     private CheckBox check(LinearLayout parent, String title, boolean value) {
         CheckBox box = new CheckBox(this); box.setText(title); box.setTextSize(15); box.setMinHeight(dp(48));
+        box.setTextColor(color(R.color.ink)); box.setButtonTintList(controlTint());
         box.setChecked(value); parent.addView(box); return box;
     }
     private EditText field(LinearLayout parent, String label, String hint, String value, boolean multiline) {
         margin(parent, text(label, 14, R.color.muted, true), 12, 0);
         EditText input = new EditText(this); input.setHint(hint); input.setText(value); input.setTextSize(16);
         input.setSingleLine(!multiline); input.setMaxLines(multiline ? 4 : 1); input.setMinHeight(dp(48));
+        input.setTextColor(color(R.color.ink)); input.setHintTextColor(color(R.color.muted));
+        input.setPadding(dp(14), dp(12), dp(14), dp(12));
+        GradientDrawable idle = shape(R.color.page, 10); idle.setStroke(dp(1), color(R.color.input_border));
+        GradientDrawable focused = shape(R.color.page, 10); focused.setStroke(dp(2), color(R.color.accent));
+        StateListDrawable fieldBackground = new StateListDrawable();
+        fieldBackground.addState(new int[]{android.R.attr.state_focused}, focused); fieldBackground.addState(new int[]{}, idle);
+        input.setBackground(fieldBackground);
         int inputType = android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
                 | (multiline ? android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE : 0);
         input.setInputType(inputType);
         // Literal rules must not be changed by hardware-keyboard AutoText either.
         input.setKeyListener(android.text.method.TextKeyListener.getInstance(false, android.text.method.TextKeyListener.Capitalize.NONE));
         input.setRawInputType(inputType);
-        parent.addView(input, new LinearLayout.LayoutParams(-1, -2)); return input;
+        margin(parent, input, 6, 0); return input;
     }
     private static JSONObject object(String json) {
         try { return new JSONObject(json); } catch (Exception e) { throw new IllegalArgumentException(e); }
@@ -454,7 +500,18 @@ public final class MainActivity extends Activity {
         if (array == null) return ""; StringBuilder result = new StringBuilder();
         for (int i = 0; i < array.length(); i++) { if (i > 0) result.append('\n'); result.append(array.optString(i)); } return result.toString();
     }
-    private static String describe(JSONObject rule) {
+    private boolean genderControlsAvailable() {
+        return host != HostApp.XIAOHONGSHU || settings.optBoolean("resolveProfileGender", false);
+    }
+
+    private static boolean hasConditions(JSONObject rule, boolean includeGender) {
+        return rule.optBoolean("unknownLocation") || nonEmpty(rule.optJSONArray("locations"))
+                || nonEmpty(rule.optJSONArray("keywords")) || (includeGender && nonEmpty(rule.optJSONArray("genders")));
+    }
+
+    private static boolean nonEmpty(JSONArray values) { return values != null && values.length() > 0; }
+
+    private String describe(JSONObject rule) {
         java.util.ArrayList<String> descriptions = new java.util.ArrayList<>();
         String regions = join(rule.optJSONArray("locations")).replace('\n', '、');
         if (rule.optBoolean("unknownLocation")) regions += regions.isEmpty() ? "未知" : "、未知";
@@ -464,7 +521,96 @@ public final class MainActivity extends Activity {
         JSONArray sex = rule.optJSONArray("genders"); java.util.ArrayList<String> genders = new java.util.ArrayList<>();
         if (sex != null) for (int i = 0; i < sex.length(); i++)
             genders.add("M".equals(sex.optString(i)) ? "男" : "F".equals(sex.optString(i)) ? "女" : "未知");
-        if (!genders.isEmpty()) descriptions.add("性别 · " + TextUtils.join("、", genders));
+        if (!genders.isEmpty()) {
+            if (genderControlsAvailable()) descriptions.add("性别 · " + TextUtils.join("、", genders));
+            else descriptions.add(descriptions.isEmpty() ? "规则已暂停 · 性别过滤未开启" : "性别条件已暂停");
+        }
         return TextUtils.join("\n", descriptions);
+    }
+
+    private LinearLayout dialogForm() {
+        LinearLayout form = column(); form.setPadding(dp(24), dp(2), dp(24), dp(12)); return form;
+    }
+
+    private AlertDialog.Builder dialogBuilder(String title) {
+        LinearLayout heading = column(); heading.setPadding(dp(24), dp(22), dp(24), dp(12));
+        TextView context = text("选择应用".equals(title) ? "各应用独立配置" : host.displayName, 13, R.color.muted, true);
+        heading.addView(context);
+        TextView name = text(title, 23, R.color.ink, true); name.setPadding(0, dp(4), 0, 0);
+        name.setAccessibilityHeading(true); heading.addView(name);
+        return new AlertDialog.Builder(new ContextThemeWrapper(this, R.style.FilterDialogTheme)).setCustomTitle(heading);
+    }
+
+    private ScrollView dialogScroll(View content) {
+        ScrollView scroll = new ScrollView(this) {
+            @Override protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                int max = Math.round(getResources().getDisplayMetrics().heightPixels * .62f);
+                int mode = MeasureSpec.getMode(heightMeasureSpec), size = MeasureSpec.getSize(heightMeasureSpec);
+                if (mode != MeasureSpec.UNSPECIFIED) max = Math.min(max, size);
+                super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(max, MeasureSpec.AT_MOST));
+            }
+        };
+        scroll.setClipToPadding(false); scroll.setFillViewport(false); scroll.addView(content);
+        return scroll;
+    }
+
+    private void styleDialog(AlertDialog dialog) {
+        android.view.Window window = dialog.getWindow();
+        if (window == null) return;
+        window.setBackgroundDrawable(shape(R.color.surface, 22));
+        window.getDecorView().setPadding(0, 0, 0, 0);
+        int width = Math.min(getResources().getDisplayMetrics().widthPixels - dp(32), dp(560));
+        window.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
+        window.setDimAmount(.34f);
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        ViewGroup actionRow = null;
+        for (int which : new int[]{AlertDialog.BUTTON_NEGATIVE, AlertDialog.BUTTON_POSITIVE}) {
+            Button action = dialog.getButton(which);
+            if (action == null) continue;
+            if (actionRow == null && action.getParent() instanceof ViewGroup row) {
+                actionRow = row;
+                // Native alert button rows can reserve only the platform button height.
+                // Put vertical spacing on the row instead of consuming a child's bounds.
+                row.setPadding(row.getPaddingLeft(), dp(8), row.getPaddingRight(), dp(12));
+                row.setMinimumHeight(dp(68));
+                ViewGroup.LayoutParams rowParams = row.getLayoutParams();
+                if (rowParams != null) { rowParams.height = ViewGroup.LayoutParams.WRAP_CONTENT; row.setLayoutParams(rowParams); }
+            }
+            boolean primary = which == AlertDialog.BUTTON_POSITIVE;
+            action.setAllCaps(false); action.setTextSize(15); action.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            action.setMinHeight(dp(48)); action.setMinimumHeight(dp(48)); action.setMinWidth(dp(72));
+            action.setPadding(dp(16), dp(9), dp(16), dp(9)); action.setStateListAnimator(null);
+            action.setTextColor(color(primary ? R.color.on_accent : R.color.accent));
+            action.setBackground(ripple(primary ? R.color.accent : R.color.well, 10));
+            ViewGroup.LayoutParams current = action.getLayoutParams();
+            if (current != null) current.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+            if (current instanceof ViewGroup.MarginLayoutParams margins) {
+                margins.leftMargin = dp(6); margins.rightMargin = dp(6);
+                margins.topMargin = 0; margins.bottomMargin = 0;
+            }
+            if (current != null) action.setLayoutParams(current);
+        }
+        if (ValueAnimator.areAnimatorsEnabled()) {
+            View panel = window.getDecorView(); panel.setAlpha(.88f); panel.setTranslationY(dp(6));
+            panel.animate().alpha(1).translationY(0).setDuration(180).start();
+        }
+    }
+
+    private ColorStateList controlTint() {
+        return new ColorStateList(new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
+                new int[]{color(R.color.accent), color(R.color.muted)});
+    }
+
+    private CheckBox genderChoice(LinearLayout parent, String label, boolean checked) {
+        CheckBox choice = new CheckBox(this); choice.setText(label); choice.setChecked(checked);
+        choice.setTextSize(15); choice.setTextColor(controlTint()); choice.setGravity(Gravity.CENTER);
+        choice.setButtonDrawable(null); choice.setMinWidth(0); choice.setMinimumWidth(0);
+        choice.setMinHeight(dp(46)); choice.setPadding(dp(4), dp(8), dp(4), dp(8));
+        StateListDrawable background = new StateListDrawable();
+        background.addState(new int[]{android.R.attr.state_checked}, shape(R.color.save_background, 10));
+        background.addState(new int[]{}, shape(R.color.page, 10));
+        choice.setBackground(new RippleDrawable(ColorStateList.valueOf(0x22176B54), background, shape(R.color.surface, 10)));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -2, 1);
+        params.setMarginEnd(dp(6)); parent.addView(choice, params); return choice;
     }
 }

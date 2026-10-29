@@ -11,10 +11,12 @@ public final class XiaohongshuCommentFilterTest {
     public interface Root extends Row {}
     public static final class Info {
         String id, content, ipLocation, rootCommentId;
+        Author user;
         Info(String id, String text, String region, String root) {
             this.id = id; content = text; ipLocation = region; rootCommentId = root;
         }
     }
+    public static final class Author { String userid; public Author(String userid) { this.userid = userid; } }
     public static final class Main implements Root {
         final Info info;
         Main(String id, String text) { info = new Info(id, text, "广东", null); }
@@ -30,7 +32,7 @@ public final class XiaohongshuCommentFilterTest {
         return new XiaohongshuCommentFilter(Root.class, Row.class, Child.class, Info.class);
     }
     private RuleEngine rules(String conditions) {
-        return RuleEngine.compileJson("{\"schemaVersion\":1,\"enabled\":true,\"blacklist\":[{\"id\":\"r\"," + conditions + "}]}");
+        return RuleEngine.compileJson("{\"schemaVersion\":1,\"enabled\":true,\"resolveProfileGender\":true,\"blacklist\":[{\"id\":\"r\"," + conditions + "}]}");
     }
 
     @Test public void hidesRootAndItsAttachedRepliesWithoutMutatingModels() throws Exception {

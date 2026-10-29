@@ -5,4 +5,5 @@
     <color name="muted">#ADBEB2</color><color name="accent">#8FD6B8</color>
     <color name="on_accent">#12382A</color><color name="error">#FFB4AB</color>
     <color name="save_background">#264837</color>
+    <color name="input_border">#3A4A40</color>
 </resources>

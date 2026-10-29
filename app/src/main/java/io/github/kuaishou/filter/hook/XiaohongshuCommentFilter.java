@@ -14,12 +14,27 @@ import java.util.Set;
 
 /** Projection of verified comment row interfaces; original rows/models remain unchanged. */
 public final class XiaohongshuCommentFilter {
+    public interface GenderLookup { GenderState lookup(String userId); }
+    public static final class GenderState {
+        public final boolean pending;
+        public final Gender gender;
+        public GenderState(boolean pending, Gender gender) {
+            this.pending = pending;
+            this.gender = gender == null ? Gender.UNKNOWN : gender;
+        }
+    }
     private final Class<?> rootRow, commentRow, childRow;
     private final Method model;
-    private final Field id, content, location, rootId, childRootId;
+    private final Field id, content, location, rootId, childRootId, author, authorId;
+    private final GenderLookup genders;
 
     public XiaohongshuCommentFilter(Class<?> rootRow, Class<?> commentRow, Class<?> childRow,
                                     Class<?> info) throws ReflectiveOperationException {
+        this(rootRow, commentRow, childRow, info, null);
+    }
+
+    public XiaohongshuCommentFilter(Class<?> rootRow, Class<?> commentRow, Class<?> childRow,
+                                    Class<?> info, GenderLookup genders) throws ReflectiveOperationException {
         this.rootRow = rootRow;
         this.commentRow = commentRow;
         this.childRow = childRow;
@@ -31,6 +46,11 @@ public final class XiaohongshuCommentFilter {
         location = stringField(info, "ipLocation");
         rootId = stringField(info, "rootCommentId");
         childRootId = stringField(childRow, "e");
+        this.genders = genders;
+        if (genders != null) {
+            author = info.getDeclaredField("user"); author.setAccessible(true);
+            authorId = stringField(author.getType(), "userid");
+        } else { author = null; authorId = null; }
     }
 
     private static Field stringField(Class<?> type, String name) throws ReflectiveOperationException {
@@ -49,9 +69,24 @@ public final class XiaohongshuCommentFilter {
             try {
                 Object info = model.invoke(row);
                 if (info == null) continue;
-                // CommentCommentUser in this APK does not declare a gender field.
                 Comment snapshot = new Comment((String) content.get(info), (String) location.get(info), Gender.UNKNOWN, false);
-                if (rules.evaluate(snapshot).hidden()) {
+                io.github.kuaishou.filter.core.Decision decision;
+                if (!rules.resolveProfileGender()) {
+                    decision = rules.evaluate(snapshot, false);
+                } else if (!rules.usesGenderRules() || genders == null) {
+                    decision = rules.evaluate(snapshot);
+                } else {
+                    decision = rules.evaluatePendingGender(snapshot);
+                    // Independent keyword/location blacklist matches need no profile lookup.
+                    if (!decision.hidden()) {
+                        Object user = author.get(info);
+                        String userId = user == null ? null : (String) authorId.get(user);
+                        GenderState state = genders.lookup(userId);
+                        if (state == null) throw new IllegalStateException("Missing profile result");
+                        if (!state.pending) decision = rules.evaluate(new Comment(snapshot.text(), snapshot.location(), state.gender, false));
+                    }
+                }
+                if (decision.hidden()) {
                     hidden.add(row);
                     String key = (String) id.get(info);
                     if (key != null && !key.isEmpty()) hiddenIds.add(key);

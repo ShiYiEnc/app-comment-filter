@@ -1,5 +1,7 @@
 # 小红书性别来源复核
 
+后续进展：0.2.1 已实现可选的资料关联，见 [0.2.1 记录](XHS_GENDER_0.2.1.md)。下文“尚未实现”指本次复核时的 0.2.0 状态。
+
 日期：2026-10-28，Asia/Shanghai。目标是用户提供的小红书 9.52.0 / 9520807 APK，SHA-256 `0c8f371d8eee181ef5917f051c62bebc05f5cafb6a853876eafa56ffece0dcfe`。复用包清单 REA Evidence `ev_7d99df27aafc61a2daba462696de971348185e0656f48a4197df3039f84604a5`；新增调用、字段与解析观察来自原 APK DEX 和本地 JADX，不是新的 REA Evidence。未运行目标应用或请求任何用户资料。
 
 ## 结论

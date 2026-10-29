@@ -176,4 +176,118 @@ public class RuleEngineTest {
         assertEquals(Gender.UNKNOWN, comment.gender());
         assertEquals("NO_MATCH", engine("\"blacklist\":[]").evaluate(comment).reason());
     }
+
+    @Test public void profileGenderResolutionIsOptInAndStrictlyBoolean() {
+        assertFalse(RuleEngine.compileJson(RuleEngine.defaultJson()).resolveProfileGender());
+        assertFalse(engine("\"blacklist\":[]").resolveProfileGender());
+        assertTrue(engine("\"resolveProfileGender\":true").resolveProfileGender());
+        assertFalse(engine("\"resolveProfileGender\":false").resolveProfileGender());
+        for (String value : new String[]{"\"true\"", "1", "null", "[]", "{}"}) {
+            rejects("\"resolveProfileGender\":" + value);
+        }
+    }
+
+    @Test public void defaultEvaluationStillUsesGenderRegardlessOfProfileOptIn() {
+        RuleEngine engine = engine("\"blacklist\":[{\"id\":\"female\",\"genders\":[\"F\"]}]");
+        assertFalse(engine.resolveProfileGender());
+        assertFalse(engine.evaluate(AD).hidden());
+        assertTrue(engine.evaluate(new Comment("normal", "广东", Gender.F, false)).hidden());
+    }
+
+    @Test public void suspendedGenderOnlyBlacklistCannotHideEverything() {
+        RuleEngine engine = engine("\"blacklist\":[{\"id\":\"male\",\"genders\":[\"M\"]}]");
+        assertTrue(engine.evaluate(AD).hidden());
+        assertFalse(engine.evaluate(AD, false).hidden());
+        assertEquals("NO_MATCH", engine.evaluate(new Comment("hello", null, Gender.UNKNOWN, false), false).reason());
+    }
+
+    @Test public void suspendedGenderOnlyWhitelistBecomesEmptyEffectiveWhitelist() {
+        RuleEngine engine = engine("\"mode\":\"WHITELIST_ONLY\",\"whitelist\":[{\"id\":\"female\",\"genders\":[\"F\"]}]");
+        assertTrue(engine.evaluate(AD).hidden());
+        assertFalse(engine.evaluate(AD, false).hidden());
+        assertEquals("EMPTY_WHITELIST", engine.evaluate(AD, false).reason());
+    }
+
+    @Test public void suspendingGenderKeepsOtherRuleDimensionsAndTheirAndSemantics() {
+        RuleEngine engine = engine("\"blacklist\":[{\"id\":\"mixed\",\"locations\":[\"广东\"],\"keywords\":[\"推广\"],\"genders\":[\"F\"]}]");
+        assertFalse(engine.evaluate(AD).hidden());
+        assertTrue(engine.evaluate(AD, false).hidden());
+        assertFalse(engine.evaluate(new Comment("推广", "北京", Gender.F, false), false).hidden());
+        assertFalse(engine.evaluate(new Comment("正常", "广东", Gender.F, false), false).hidden());
+    }
+
+    @Test public void suspendedGenderWhitelistStillUsesRemainingRules() {
+        RuleEngine engine = engine("\"mode\":\"WHITELIST_ONLY\",\"whitelist\":["
+                + "{\"id\":\"genderOnly\",\"genders\":[\"M\"]},"
+                + "{\"id\":\"mixed\",\"unknownLocation\":true,\"genders\":[\"F\"]}]");
+        assertTrue(engine.evaluate(AD, false).hidden());
+        Decision unknownRegion = engine.evaluate(new Comment("hello", null, Gender.M, false), false);
+        assertFalse(unknownRegion.hidden());
+        assertEquals("mixed", unknownRegion.ruleId());
+    }
+
+    @Test public void genderResolutionDemandOnlyIncludesEnabledCurrentModeRules() {
+        assertFalse(engine("\"blacklist\":[{\"id\":\"off\",\"enabled\":false,\"genders\":[\"M\"]}]").usesGenderRules());
+        assertFalse(engine("\"blacklist\":[{\"id\":\"words\",\"keywords\":[\"推广\"]}],"
+                + "\"whitelist\":[{\"id\":\"otherMode\",\"genders\":[\"M\"]}]").usesGenderRules());
+        assertTrue(engine("\"blacklist\":[{\"id\":\"active\",\"genders\":[\"UNKNOWN\"]}]").usesGenderRules());
+        assertTrue(engine("\"mode\":\"WHITELIST_ONLY\",\"whitelist\":[{\"id\":\"active\",\"genders\":[\"F\"]}]").usesGenderRules());
+        RuleEngine disabled = RuleEngine.compileJson("{\"schemaVersion\":1,\"enabled\":false,"
+                + "\"blacklist\":[{\"id\":\"active\",\"genders\":[\"M\"]}]}");
+        assertFalse(disabled.usesGenderRules());
+    }
+
+    @Test public void suspendedGenderStillExcludesRepliesAndHonorsMasterSwitch() {
+        RuleEngine engine = engine("\"blacklist\":[{\"id\":\"words\",\"keywords\":[\"推广\"],\"genders\":[\"F\"]}]");
+        assertEquals("REPLY_EXCLUDED", engine.evaluate(new Comment("推广", "广东", Gender.M, true), false).reason());
+        assertEquals("DISABLED", RuleEngine.compileJson(RuleEngine.defaultJson()).evaluate(AD, false).reason());
+    }
+
+    @Test public void pendingProfileIsNotAResolvedUnknownGender() {
+        RuleEngine engine = engine("\"blacklist\":[{\"id\":\"unknown\",\"genders\":[\"UNKNOWN\"]}]");
+        Comment unknown = new Comment("hello", "广东", Gender.UNKNOWN, false);
+        assertTrue(engine.evaluate(unknown).hidden());
+        Decision pending = engine.evaluatePendingGender(unknown);
+        assertFalse(pending.hidden());
+        assertEquals("GENDER_PENDING", pending.reason());
+        assertNull(pending.ruleId());
+    }
+
+    @Test public void pendingBlacklistSkipsEntireMixedGenderRuleInsteadOfItsGenderDimension() {
+        RuleEngine engine = engine("\"blacklist\":[{\"id\":\"mixed\",\"keywords\":[\"推广\"],\"genders\":[\"F\"]}]");
+        assertTrue(engine.evaluate(AD, false).hidden());
+        assertFalse(engine.evaluatePendingGender(AD).hidden());
+        assertEquals("GENDER_PENDING", engine.evaluatePendingGender(AD).reason());
+    }
+
+    @Test public void pendingBlacklistStillHidesIndependentGenderlessMatches() {
+        RuleEngine engine = engine("\"blacklist\":["
+                + "{\"id\":\"mixed\",\"keywords\":[\"推广\"],\"genders\":[\"F\"]},"
+                + "{\"id\":\"spam\",\"keywords\":[\"推广\"]}]");
+        Decision pending = engine.evaluatePendingGender(AD);
+        assertTrue(pending.hidden());
+        assertEquals("BLACKLIST_MATCH", pending.reason());
+        assertEquals("spam", pending.ruleId());
+    }
+
+    @Test public void pendingWhitelistRetainsCommentUntilProfileCanResolveItsGenderRule() {
+        RuleEngine engine = engine("\"mode\":\"WHITELIST_ONLY\",\"whitelist\":["
+                + "{\"id\":\"words\",\"keywords\":[\"not-present\"]},"
+                + "{\"id\":\"female\",\"genders\":[\"F\"]}]");
+        assertTrue(engine.evaluate(AD).hidden());
+        assertEquals("GENDER_PENDING", engine.evaluatePendingGender(AD).reason());
+        assertFalse(engine.evaluatePendingGender(AD).hidden());
+        assertFalse(engine.evaluate(new Comment("hello", null, Gender.F, false)).hidden());
+    }
+
+    @Test public void pendingEvaluationKeepsOriginalSafetyAndNoGenderRuleBehavior() {
+        RuleEngine engine = engine("\"mode\":\"WHITELIST_ONLY\",\"whitelist\":["
+                + "{\"id\":\"off\",\"enabled\":false,\"genders\":[\"F\"]},"
+                + "{\"id\":\"words\",\"keywords\":[\"not-present\"]}]");
+        assertTrue(engine.evaluatePendingGender(AD).hidden());
+        assertEquals("WHITELIST_MISS", engine.evaluatePendingGender(AD).reason());
+        assertEquals("DISABLED", RuleEngine.compileJson(RuleEngine.defaultJson()).evaluatePendingGender(AD).reason());
+        RuleEngine withGender = engine("\"blacklist\":[{\"id\":\"mixed\",\"genders\":[\"M\"]}]");
+        assertEquals("REPLY_EXCLUDED", withGender.evaluatePendingGender(new Comment("推广", "广东", Gender.M, true)).reason());
+    }
 }

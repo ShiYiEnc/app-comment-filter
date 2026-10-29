@@ -1,0 +1,26 @@
+{
+  "version": "0.2.1",
+  "version_code": 9,
+  "date": "2026-10-29",
+  "timezone": "Asia/Shanghai",
+  "tests": 118,
+  "failures": 0,
+  "app_unit_test_repetitions": 3,
+  "ui_functional_runs_passed": 3,
+  "software_keyboard_verified_runs": 2,
+  "lint": [
+    {
+      "id": "OldTargetApi",
+      "severity": "Warning"
+    },
+    {
+      "id": "AndroidGradlePluginVersion",
+      "severity": "Warning"
+    }
+  ],
+  "apk_sha256": "777fd2ec7960e14d6a233b152238588cb89e38094aeaa60372e793c70779bd4d",
+  "signature_v2_verified": true,
+  "ui_smoke": "ui-0.2.1/results.json",
+  "independent_ux_review": "ui-0.2.1/ux-review/ux-review.md",
+  "host_profile_requests_tested": false
+}

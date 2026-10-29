@@ -3,6 +3,8 @@ package io.github.kuaishou.filter.hook;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import io.github.kuaishou.filter.config.RemoteConfig;
+import io.github.kuaishou.filter.core.RuleEngine;
+import io.github.kuaishou.filter.core.Gender;
 import android.os.Handler;
 import android.os.Looper;
 import java.lang.reflect.Method;
@@ -16,16 +18,20 @@ public final class XiaohongshuAdapter {
     public static final long VERSION_CODE = 9520807;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final AtomicBoolean failureLogged = new AtomicBoolean();
+    private final List<Method> setters = new ArrayList<>();
+    private XiaohongshuGenderResolver genders;
+    private XiaohongshuProjection projection;
+    private RemoteConfig config;
+    private Method notify;
+    private boolean refreshScheduled;
+    private boolean admitProfilesOnRefresh;
+    private final ThreadLocal<Boolean> cachedProfilesOnly = new ThreadLocal<>();
 
     public void install(ClassLoader loader, RemoteConfig config) throws ReflectiveOperationException {
+        this.config = config;
         Class<?> info = Class.forName("com.xingin.entities.CommentCommentInfo", false, loader);
-        XiaohongshuCommentFilter filter = new XiaohongshuCommentFilter(
-                Class.forName("uz7.d", false, loader), Class.forName("uz7.a", false, loader),
-                Class.forName("uz7.e", false, loader), info);
-        XiaohongshuProjection projection = new XiaohongshuProjection(filter);
         String[] names = {"com.xingin.comment.consumer.list.CommentListAdapter",
                 "com.xingin.commentpanel.panel.comment.list.CommentListAdapter"};
-        List<Method> setters = new ArrayList<>();
         List<Method> getters = new ArrayList<>();
         for (String name : names) {
             Class<?> adapter = Class.forName(name, false, loader);
@@ -37,12 +43,31 @@ public final class XiaohongshuAdapter {
             getters.add(getter);
         }
         Class<?> baseAdapter = Class.forName("androidx.recyclerview.widget.RecyclerView$Adapter", false, loader);
-        Method notify = baseAdapter.getMethod("notifyDataSetChanged");
+        notify = baseAdapter.getMethod("notifyDataSetChanged");
         Method dispatch = Class.forName("androidx.recyclerview.widget.DiffUtil$DiffResult", false, loader)
                 .getMethod("dispatchUpdatesTo", baseAdapter);
         Class<?> controller = Class.forName("com.xingin.comment.consumer.list.AbsCommentListController", false, loader);
         Method delete = controller.getDeclaredMethod("N2", String.class);
         Method getAdapter = controller.getMethod("j2");
+        try { genders = new XiaohongshuGenderResolver(loader, main, this::scheduleReapply); }
+        catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
+            // Profile symbols are optional: their absence must not disable text/location filtering.
+            XposedBridge.log("[CommentFilter] Xiaohongshu profile lookup unavailable (" + error.getClass().getSimpleName() + ")");
+        }
+        XiaohongshuCommentFilter filter;
+        try {
+            filter = new XiaohongshuCommentFilter(
+                    Class.forName("uz7.d", false, loader), Class.forName("uz7.a", false, loader),
+                    Class.forName("uz7.e", false, loader), info, userId -> {
+                        if (genders == null) return new XiaohongshuCommentFilter.GenderState(false, Gender.UNKNOWN);
+                        XiaohongshuGenderCache.Result result = genders.lookup(userId, !Boolean.TRUE.equals(cachedProfilesOnly.get()));
+                        return new XiaohongshuCommentFilter.GenderState(result.pending, result.gender);
+                    });
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
+            if (genders != null) genders.close();
+            throw error;
+        }
+        projection = new XiaohongshuProjection(filter);
         List<XC_MethodHook.Unhook> installed = new ArrayList<>();
         try {
             installed.add(XposedBridge.hookMethod(dispatch, new XC_MethodHook() {
@@ -58,7 +83,9 @@ public final class XiaohongshuAdapter {
                 @Override protected void beforeHookedMethod(MethodHookParam param) {
                     try {
                         if (!(param.args[0] instanceof List<?> original)) return;
-                        List<?> filtered = projection.project(param.thisObject, original, config.snapshot());
+                        RuleEngine rules = config.snapshot();
+                        configureGender(rules);
+                        List<?> filtered = projection.project(param.thisObject, original, rules);
                         if (filtered != original) {
                             param.args[0] = filtered;
                         }
@@ -83,9 +110,47 @@ public final class XiaohongshuAdapter {
             }));
         } catch (RuntimeException | LinkageError e) {
             for (XC_MethodHook.Unhook hook : installed) hook.unhook();
+            if (genders != null) genders.close();
             throw e;
         }
+        config.addListener(() -> main.post(() -> {
+            configureGender(config.snapshot());
+            scheduleReapply(true);
+        }));
         XposedBridge.log("[CommentFilter] Xiaohongshu adapter ready: " + VERSION_NAME);
+    }
+
+    private void configureGender(RuleEngine rules) {
+        if (genders != null) genders.setEnabled(rules.enabled() && rules.resolveProfileGender() && rules.usesGenderRules());
+    }
+
+    private void scheduleReapply() {
+        scheduleReapply(false);
+    }
+
+    private void scheduleReapply(boolean admitProfiles) {
+        if (Looper.myLooper() != main.getLooper()) { main.post(() -> scheduleReapply(admitProfiles)); return; }
+        admitProfilesOnRefresh |= admitProfiles;
+        if (refreshScheduled || projection == null) return;
+        refreshScheduled = true;
+        main.postDelayed(() -> {
+            refreshScheduled = false;
+            boolean mayRequest = admitProfilesOnRefresh;
+            admitProfilesOnRefresh = false;
+            configureGender(config.snapshot());
+            cachedProfilesOnly.set(!mayRequest);
+            try { for (java.util.Map.Entry<Object, List<?>> source : projection.sources().entrySet()) {
+                Object adapter = source.getKey();
+                if (!projection.isCurrent(adapter, source.getValue())) continue;
+                for (Method setter : setters) if (setter.getDeclaringClass().isInstance(adapter)) {
+                    try {
+                        setter.invoke(adapter, source.getValue());
+                        refresh(notify, adapter, 0);
+                    } catch (ReflectiveOperationException | RuntimeException error) { logFailure(error); }
+                    break;
+                }
+            } } finally { cachedProfilesOnly.remove(); }
+        }, 48);
     }
 
     private void refresh(Method notify, Object adapter, int attempt) {
