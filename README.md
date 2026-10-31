@@ -1,5 +1,7 @@
 # 评论过滤 · LSPosed 模块
 
+[下载最新版](https://github.com/ShiYiEnc/app-comment-filter/releases/latest) · [版本记录](docs/CHANGELOG.md) · [AGPL-3.0 许可证](LICENSE)
+
 针对用户提供的五款 APK 建立的 Android 工程。当前模块 **0.2.7**，目标环境为 **Android 16 + LSPosed 2.1.0**。模块包名为 **`io.github.appcommentfilter`**，使用用户提供的玫红色“评论气泡＋两条筛选线”图标，适用于多应用评论过滤。
 
 **从 0.2.1 及更早版本升级：包名已变更，Android 会将其作为新应用安装，不能覆盖旧包。** 旧规则保留在旧应用，需按应用通过高级 JSON 手动复制到新应用并保存；请重新在 LSPosed 启用新模块、勾选作用域，并停用旧模块，避免两个模块同时过滤。历史版本记录和截图中的旧包名是当时的真实身份，不表示当前入口。
@@ -38,7 +40,7 @@
 
 ## 安装测试
 
-1. 安装 `app/build/outputs/apk/debug/app-debug.apk`。
+1. 从 [GitHub Releases](https://github.com/ShiYiEnc/app-comment-filter/releases/latest) 下载 APK 安装，或自行构建 `app/build/outputs/apk/debug/app-debug.apk`。
 2. 在 LSPosed 中启用“评论过滤”，作用域勾选需要过滤的应用。
 3. 打开模块，从顶部选择应用，添加规则，点“完成”返回首页。
 4. 打开该应用的过滤开关，点击“保存规则”。首次启用模块后强制停止并重新打开对应应用，打开评论区。
@@ -90,3 +92,7 @@ Android Studio 打开此目录，配置 SDK 并同步。也可以在 Windows Pow
 明确的安装、读取/投影、配置读取、快手补页异常会记录原因，并尝试在宿主中显示一次 Toast。同一宿主版本、模块版本的同类故障持久去重，宿主启动后每进程至多提示一次；系统可能限制 Toast。若报告通道也不可用，则回退到进程内一次提醒和 LSPosed 日志。未收到回调、空列表、过滤关闭和规则未命中均不会自动判为失效；完全绕过旧 Hook 或字段含义改变不能可靠自动识别。诊断只保存版本、时间、聚合计数及异常类型，不保存评论或作者资料。基础设计见 [0.2.4 历史诊断说明](docs/RUNTIME_STATUS_0.2.4.md)，其中小红书资料诊断已随 0.2.6 功能移除而删除。
 
 接口选择参考：[Xposed API 82](https://api.xposed.info/)、[LSPosed 模块开发说明](https://github.com/LSPosed/LSPosed/wiki/Develop-Xposed-Modules-Using-Modern-Xposed-API)、[AGP 8.13 兼容信息](https://developer.android.com/build/releases/agp-8-13-0-release-notes)。本工程使用传统 Xposed API 82 和独立 Provider，不依赖扩展版 XSharedPreferences。
+
+## 开源许可
+
+本项目采用 [GNU Affero General Public License v3.0（AGPL-3.0）](LICENSE)。第三方依赖和工具遵循其各自许可证；原始宿主 APK、签名密钥及私人调试数据不随源码分发。
