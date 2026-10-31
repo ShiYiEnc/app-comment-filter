@@ -8,8 +8,9 @@ android {
         applicationId = "io.github.appcommentfilter"
         minSdk = 28
         targetSdk = 36
-        versionCode = 11
-        versionName = "0.2.3"
+        versionCode = 12
+        versionName = "0.2.4"
+        testInstrumentationRunner = "io.github.appcommentfilter.RuntimeStatusInstrumentation"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -23,6 +24,7 @@ android {
 
 dependencies {
     implementation(project(":core"))
+    implementation("com.google.code.gson:gson:2.11.0")
     compileOnly("de.robv.android.xposed:api:82")
     testImplementation("junit:junit:4.13.2")
 }

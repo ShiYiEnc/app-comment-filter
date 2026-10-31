@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-31",
+  "package": "io.github.appcommentfilter",
+  "versionName": "0.2.4",
+  "versionCode": 12,
+  "apk": "D:\\Projects\\Git_project\\app-comment-filter\\releases\\comment-filter-0.2.4-debug.apk",
+  "sizeBytes": 632482,
+  "sha256": "b1d7587a1e6ce93148f74a5bfdbbe2897c91c02ad78405e7c1d5876343d7288c",
+  "signature": {
+    "verified": true,
+    "scheme": "v2",
+    "certificateSha256": "4e8e88c4b8ccdb16d8cd8027933dc0ff497de9bfecc15fed03e270ed61f465df"
+  },
+  "build": "assembleDebug, assembleDebugAndroidTest, testDebugUnitTest, core:test, lintDebug succeeded",
+  "unitTests": {
+    "app": {
+      "tests": 68,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "core": {
+      "tests": 62,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "lint": [
+    {
+      "id": "OldTargetApi",
+      "severity": "Warning"
+    },
+    {
+      "id": "AndroidGradlePluginVersion",
+      "severity": "Warning"
+    }
+  ],
+  "emulator": {
+    "api": 37,
+    "installReplace": "Success, PackageManager confirms 0.2.4 / 12",
+    "runtimeStatusSmoke": {
+      "host_hooks_tested": false,
+      "binder_tests": "INSTRUMENTATION_RESULT: result=PASS: startup, readiness, notice dedup, categories, host isolation, stale sessions, invalid input, rule immutability, version scope\r\nINSTRUMENTATION_CODE: -1\r\n",
+      "waiting": true,
+      "active": true,
+      "partial": true,
+      "failed": true,
+      "old": true,
+      "unrelated_uid_rejected": true,
+      "api": 37,
+      "original_preferences_restored": true
+    },
+    "profileSmoke": {
+      "legacy_kuaishou_read_without_migration_write": true,
+      "switch_keeps_independent_unsaved_drafts_and_save_only_current_profile": true,
+      "drafts_survive_activity_recreation_and_first_ks_save_migrates_revision": true,
+      "all_five_profiles_keep_independent_rules_modes_switches_revisions": true,
+      "fresh_process_restores_saved_profiles_and_last_selection_discards_unsaved_edits": true,
+      "dark_mode_recreation_retains_selected_profile": true,
+      "unrelated_shell_uid_cannot_query_profile": true,
+      "device_api": 37,
+      "host_hooks_tested": false,
+      "original_module_preferences_restored": true
+    }
+  },
+  "realHostLsposedHooksTested": false,
+  "realHostToastTested": false,
+  "limitations": "Runtime UI scenarios use a code-free com.xingin.xhs fixture plus seeded reports. Removing the version gate does not prove compatibility with newer host APKs."
+}

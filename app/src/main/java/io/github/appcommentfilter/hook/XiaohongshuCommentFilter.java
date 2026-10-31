@@ -27,6 +27,7 @@ public final class XiaohongshuCommentFilter {
     private final Method model;
     private final Field id, content, location, rootId, childRootId, author, authorId;
     private final GenderLookup genders;
+    private final FilterDiagnostics diagnostics;
 
     public XiaohongshuCommentFilter(Class<?> rootRow, Class<?> commentRow, Class<?> childRow,
                                     Class<?> info) throws ReflectiveOperationException {
@@ -35,6 +36,11 @@ public final class XiaohongshuCommentFilter {
 
     public XiaohongshuCommentFilter(Class<?> rootRow, Class<?> commentRow, Class<?> childRow,
                                     Class<?> info, GenderLookup genders) throws ReflectiveOperationException {
+        this(rootRow, commentRow, childRow, info, genders, FilterDiagnostics.NONE);
+    }
+    public XiaohongshuCommentFilter(Class<?> rootRow, Class<?> commentRow, Class<?> childRow,
+                                    Class<?> info, GenderLookup genders, FilterDiagnostics diagnostics) throws ReflectiveOperationException {
+        this.diagnostics = diagnostics;
         this.rootRow = rootRow;
         this.commentRow = commentRow;
         this.childRow = childRow;
@@ -64,6 +70,7 @@ public final class XiaohongshuCommentFilter {
         if (!rules.enabled()) return original;
         Set<Object> hidden = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<String> hiddenIds = new HashSet<>();
+        int read = 0; Throwable failure = null;
         for (Object row : original) {
             if (!rootRow.isInstance(row)) continue;
             try {
@@ -86,14 +93,15 @@ public final class XiaohongshuCommentFilter {
                         if (!state.pending) decision = rules.evaluate(new Comment(snapshot.text(), snapshot.location(), state.gender, false));
                     }
                 }
+                read++;
                 if (decision.hidden()) {
                     hidden.add(row);
                     String key = (String) id.get(info);
                     if (key != null && !key.isEmpty()) hiddenIds.add(key);
                 }
-            } catch (ReflectiveOperationException | RuntimeException ignored) { /* Preserve unreadable rows. */ }
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError error) { failure = error; }
         }
-        if (hidden.isEmpty()) return original;
+        if (hidden.isEmpty()) { diagnostics.onBatch(read, 0, failure); return original; }
         List<Object> result = new ArrayList<>(original.size());
         for (Object row : original) {
             if (hidden.contains(row)) continue;
@@ -104,10 +112,11 @@ public final class XiaohongshuCommentFilter {
                     String owner = info == null ? null : (String) rootId.get(info);
                     if ((owner == null || owner.isEmpty()) && childRow.isInstance(row)) owner = (String) childRootId.get(row);
                     attachedToHidden = owner != null && hiddenIds.contains(owner);
-                } catch (ReflectiveOperationException | RuntimeException ignored) { /* Preserve unknown ownership. */ }
+                } catch (ReflectiveOperationException | RuntimeException | LinkageError error) { failure = error; }
             }
             if (!attachedToHidden) result.add(row);
         }
+        diagnostics.onBatch(read, original.size() - result.size(), failure);
         return result;
     }
 }

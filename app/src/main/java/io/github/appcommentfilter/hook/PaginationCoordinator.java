@@ -26,6 +26,9 @@ public final class PaginationCoordinator implements Application.ActivityLifecycl
     private final ThreadLocal<Boolean> dispatching = new ThreadLocal<>();
     private final RemoteConfig config;
     private final CommentListFilter filter;
+    private final HookStatus status;
+    private final Application application;
+    private final java.util.List<XC_MethodHook.Unhook> lifecycleHooks = new java.util.ArrayList<>();
     private final Field coreField;
     private final Method isFirst, isLoading, hasMore, latest, cursor, roots, load, locked;
     private final Class<?> coreClass, completionClass;
@@ -63,8 +66,9 @@ public final class PaginationCoordinator implements Application.ActivityLifecycl
     }
 
     public PaginationCoordinator(Application app, ClassLoader loader, Class<?> pageList,
-                                 RemoteConfig config, CommentListFilter filter) throws ReflectiveOperationException {
-        this.config = config; this.filter = filter;
+                                 RemoteConfig config, CommentListFilter filter, HookStatus status) throws ReflectiveOperationException {
+        this.config = config; this.filter = filter; this.status = status;
+        this.application = app;
         coreField = pageList.getDeclaredField("c1"); coreField.setAccessible(true);
         coreClass = Class.forName(BASE, false, loader);
         completionClass = Class.forName(BASE + "$c", false, loader);
@@ -84,42 +88,54 @@ public final class PaginationCoordinator implements Application.ActivityLifecycl
                 }
             }
         });
-        app.registerActivityLifecycleCallbacks(this);
     }
 
     public void install() throws ReflectiveOperationException {
-        XposedBridge.hookMethod(coreClass.getDeclaredMethod("q", completionClass), new XC_MethodHook() {
-            @Override protected void afterHookedMethod(MethodHookParam param) {
-                if (!param.hasThrowable()) completed(param.thisObject);
-            }
-        });
-        XposedBridge.hookMethod(coreClass.getDeclaredMethod("load"), new XC_MethodHook() {
-            @Override protected void beforeHookedMethod(MethodHookParam param) {
-                if (Boolean.TRUE.equals(dispatching.get())) return;
-                synchronized (sessions) {
-                    Session session = sessions.get(param.thisObject);
-                    if (session == null || session.closed) return;
-                    try {
-                        if (active == session && session.pending == PaginationPolicy.Result.ASK_CONTINUE && config.snapshot().enabled()) {
-                            // Laying out a new footer can trigger native preloading; the button owns this paused action.
-                            param.setResult(null); return;
-                        }
-                        if (Boolean.TRUE.equals(isLoading.invoke(param.thisObject))) return;
-                        session.policy.onUserLoad(); session.ticket++;
-                        session.pending = PaginationPolicy.Result.NONE;
-                        main.post(() -> dismiss(session));
-                    } catch (ReflectiveOperationException | RuntimeException e) { fail(session, e); }
+        try {
+            lifecycleHooks.add(XposedBridge.hookMethod(coreClass.getDeclaredMethod("q", completionClass), new XC_MethodHook() {
+                @Override protected void afterHookedMethod(MethodHookParam param) {
+                    if (!param.hasThrowable()) completed(param.thisObject);
                 }
+            }));
+            lifecycleHooks.add(XposedBridge.hookMethod(coreClass.getDeclaredMethod("load"), new XC_MethodHook() {
+                @Override protected void beforeHookedMethod(MethodHookParam param) {
+                    if (Boolean.TRUE.equals(dispatching.get())) return;
+                    synchronized (sessions) {
+                        Session session = sessions.get(param.thisObject);
+                        if (session == null || session.closed) return;
+                        try {
+                            if (active == session && session.pending == PaginationPolicy.Result.ASK_CONTINUE && config.snapshot().enabled()) {
+                                // Laying out a new footer can trigger native preloading; the button owns this paused action.
+                                param.setResult(null); return;
+                            }
+                            if (Boolean.TRUE.equals(isLoading.invoke(param.thisObject))) return;
+                            session.policy.onUserLoad(); session.ticket++;
+                            session.pending = PaginationPolicy.Result.NONE;
+                            main.post(() -> dismiss(session));
+                        } catch (ReflectiveOperationException | RuntimeException e) { fail(session, e); }
+                    }
+                }
+            }));
+            lifecycleHooks.add(XposedBridge.hookMethod(coreClass.getDeclaredMethod("p", Throwable.class), new XC_MethodHook() {
+                @Override protected void afterHookedMethod(MethodHookParam param) { close(param.thisObject); }
+            }));
+            for (String stopMethod : new String[]{"release", "o", "refresh"}) {
+                lifecycleHooks.add(XposedBridge.hookMethod(coreClass.getDeclaredMethod(stopMethod), new XC_MethodHook() {
+                    @Override protected void beforeHookedMethod(MethodHookParam param) { close(param.thisObject); }
+                }));
             }
-        });
-        XposedBridge.hookMethod(coreClass.getDeclaredMethod("p", Throwable.class), new XC_MethodHook() {
-            @Override protected void afterHookedMethod(MethodHookParam param) { close(param.thisObject); }
-        });
-        for (String stopMethod : new String[]{"release", "o", "refresh"}) {
-            XposedBridge.hookMethod(coreClass.getDeclaredMethod(stopMethod), new XC_MethodHook() {
-                @Override protected void beforeHookedMethod(MethodHookParam param) { close(param.thisObject); }
-            });
+            application.registerActivityLifecycleCallbacks(this);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
+            uninstall(); throw error;
         }
+    }
+
+    public void uninstall() {
+        application.unregisterActivityLifecycleCallbacks(this);
+        for (XC_MethodHook.Unhook hook : lifecycleHooks) {
+            try { hook.unhook(); } catch (RuntimeException | LinkageError ignored) { }
+        }
+        lifecycleHooks.clear();
     }
 
     public Page beforeParse(Object owner, Object response, boolean filtered) throws ReflectiveOperationException {
@@ -283,6 +299,7 @@ public final class PaginationCoordinator implements Application.ActivityLifecycl
         logFailure(e); close(session.core.get());
     }
     private void logFailure(Exception e) {
+        status.issue("pagination", e);
         XposedBridge.log("[KSFilter] Pagination continuation unavailable (" + e.getClass().getSimpleName() + ")");
     }
     private void dismiss(Session session) {

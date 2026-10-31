@@ -24,6 +24,9 @@ import io.github.appcommentfilter.BuildConfig;
 import io.github.appcommentfilter.R;
 import io.github.appcommentfilter.config.SettingsRepository;
 import io.github.appcommentfilter.config.HostApp;
+import io.github.appcommentfilter.config.ConfigStore;
+import io.github.appcommentfilter.config.HookHealth;
+import io.github.appcommentfilter.config.RuntimeStatusStore;
 import io.github.appcommentfilter.core.AutoSaveQueue;
 import io.github.appcommentfilter.core.RuleEngine;
 
@@ -36,7 +39,11 @@ public final class MainActivity extends Activity {
     private JSONObject settings;
     private String visibleJson;
     private LinearLayout ruleList, genderSettings;
-    private TextView modeHint, ruleHeading;
+    private TextView modeHint, ruleHeading, runtimeTitle, runtimeSummary;
+    private final android.os.Handler statusHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable statusRefresh = new Runnable() {
+        @Override public void run() { updateRuntimeStatus(); statusHandler.postDelayed(this, 3000); }
+    };
     private Switch master, profileGender;
     private Button blacklistTab, whitelistTab, saveButton, appSelector;
     private boolean saveRequested;
@@ -72,7 +79,9 @@ public final class MainActivity extends Activity {
         }
     }
 
-    @Override protected void onStart() { super.onStart(); observing = true; repository.observe(observer); }
+    @Override protected void onStart() {
+        super.onStart(); observing = true; repository.observe(observer); statusHandler.post(statusRefresh);
+    }
     @Override public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (!hasFocus) return;
@@ -87,7 +96,9 @@ public final class MainActivity extends Activity {
             getWindow().getDecorView().setSystemUiVisibility(night ? 0 : light);
         }
     }
-    @Override protected void onStop() { observing = false; repository.removeObserver(observer); super.onStop(); }
+    @Override protected void onStop() {
+        observing = false; repository.removeObserver(observer); statusHandler.removeCallbacks(statusRefresh); super.onStop();
+    }
     @Override protected void onDestroy() { if (activeEditor != null) activeEditor.dismiss(); super.onDestroy(); }
     @Override protected void onSaveInstanceState(Bundle state) {
         stashCurrent();
@@ -174,6 +185,15 @@ public final class MainActivity extends Activity {
         appSelector.setOnClickListener(v -> selectApp());
         margin(body, appSelector, 0, 12);
 
+        LinearLayout runtime = column(); runtime.setId(R.id.runtime_status);
+        runtime.setPadding(dp(16), dp(12), dp(16), dp(12)); runtime.setBackground(ripple(R.color.surface, 14));
+        runtimeTitle = text("", 16, R.color.ink, true); runtimeTitle.setId(R.id.runtime_status_title);
+        runtimeSummary = text("", 13, R.color.muted, false); runtimeSummary.setId(R.id.runtime_status_summary);
+        runtimeSummary.setPadding(0, dp(4), 0, 0); runtimeSummary.setLineSpacing(dp(2), 1);
+        runtime.addView(runtimeTitle); runtime.addView(runtimeSummary);
+        runtime.setOnClickListener(v -> showRuntimeStatus());
+        margin(body, runtime, 0, 12);
+
         LinearLayout activation = new LinearLayout(this); activation.setGravity(Gravity.CENTER_VERTICAL);
         activation.setPadding(dp(16), dp(14), dp(12), dp(14)); activation.setBackground(shape(R.color.surface, 14));
         LinearLayout activationText = column();
@@ -242,6 +262,7 @@ public final class MainActivity extends Activity {
     }
 
     private void syncScreen(boolean animate) {
+        updateRuntimeStatus();
         appSelector.setText(getString(R.string.app_selector_label, host.displayName));
         appSelector.setContentDescription("选择应用，当前：" + host.displayName);
         master.setContentDescription("启用" + host.displayName + "评论过滤");
@@ -271,6 +292,79 @@ public final class MainActivity extends Activity {
         if (animate && ValueAnimator.areAnimatorsEnabled()) {
             ruleList.animate().cancel(); ruleList.setAlpha(.7f); ruleList.animate().alpha(1).setDuration(160).start();
         }
+    }
+
+    private android.content.pm.PackageInfo installedHost() {
+        try { return getPackageManager().getPackageInfo(host.packageName, 0); }
+        catch (android.content.pm.PackageManager.NameNotFoundException | RuntimeException error) { return null; }
+    }
+    private boolean currentStatus(HookHealth.Snapshot state, android.content.pm.PackageInfo info) {
+        return state != null && info != null && BuildConfig.VERSION_NAME.equals(state.moduleVersion)
+                && java.util.Objects.equals(info.versionName, state.versionName) && info.getLongVersionCode() == state.versionCode;
+    }
+    private String runtimeLabel(HookHealth.Snapshot state, android.content.pm.PackageInfo info) {
+        if (info == null) return "未安装应用";
+        if (state == null) return "尚无运行记录";
+        if (!currentStatus(state, info)) return "更新后等待验证";
+        if ("FAILED".equals(state.stage)) return "适配失败";
+        if (!state.configError.isEmpty()) return "配置读取异常";
+        if (state.hasIssue()) return "部分功能异常";
+        return state.lastCommentAt > 0 ? "已读取评论" : state.ready() ? "已加载，等待评论" : "正在检查适配";
+    }
+    private String statusTime(long time) {
+        if (time <= 0) return "暂无";
+        return new java.text.SimpleDateFormat("MM-dd HH:mm:ss", java.util.Locale.CHINA).format(new java.util.Date(time));
+    }
+    private void updateRuntimeStatus() {
+        if (runtimeTitle == null) return;
+        HookHealth.Snapshot state = RuntimeStatusStore.load(this, host);
+        android.content.pm.PackageInfo info = installedHost();
+        runtimeTitle.setText(getString(R.string.runtime_status_label, runtimeLabel(state, info)));
+        boolean issue = currentStatus(state, info) && state.hasIssue();
+        runtimeTitle.setTextColor(color(issue ? R.color.error : R.color.ink));
+        String summary;
+        if (info == null) summary = "安装后，在 LSPosed 勾选此应用并重新启动。";
+        else if (state == null) summary = "请启用模块、勾选作用域，重启应用并打开评论区。";
+        else if (!currentStatus(state, info)) summary = "应用或模块已更新，请重启应用并打开评论区。";
+        else if (issue) summary = "检测到异常，点击查看原因和处理建议。";
+        else if (state.lastCommentAt > 0) summary = "最近读取 " + statusTime(state.lastCommentAt) + " · 点击查看诊断";
+        else summary = "尚未成功读取主评论，不代表失效。点击查看诊断。";
+        runtimeSummary.setText(summary);
+    }
+    private void showRuntimeStatus() {
+        HookHealth.Snapshot state = RuntimeStatusStore.load(this, host);
+        android.content.pm.PackageInfo info = installedHost();
+        StringBuilder detail = new StringBuilder(host.displayName).append(" · ").append(runtimeLabel(state, info));
+        detail.append("\n当前应用：").append(info == null ? "未安装" : info.versionName + " / " + info.getLongVersionCode());
+        detail.append("\n静态适配基准：").append(host.versionName).append("（其他版本也尝试加载）");
+        boolean enabled = object(ConfigStore.load(this, host)).optBoolean("enabled", false);
+        detail.append("\n已保存过滤开关：").append(enabled ? "开启" : "关闭");
+        if (state != null) {
+            detail.append("\n\n以下为最近一次进程的运行记录，不表示应用当前仍在运行。");
+            if (!currentStatus(state, info)) detail.append("\n此记录属于旧版本，请重启应用重新验证。");
+            detail.append("\n记录应用：").append(state.versionName).append(" / ").append(state.versionCode)
+                    .append("\n记录模块：").append(state.moduleVersion)
+                    .append("\n进程开始：").append(statusTime(state.startedAt))
+                    .append("\n最近报告：").append(statusTime(state.updatedAt))
+                    .append("\n最近读取：").append(statusTime(state.lastCommentAt))
+                    .append("\n主评论读取次数：").append(state.read)
+                    .append("\n隐藏条目次数：").append(state.hidden).append("（计数均含重复处理）");
+            appendIssue(detail, "适配安装失败", state.installError);
+            appendIssue(detail, "评论读取或处理异常", state.runtimeError);
+            appendIssue(detail, "规则读取失败，沿用最后有效配置", state.configError);
+            appendIssue(detail, "小红书性别资料不可用或请求失败，可能与网络有关", state.profileError);
+            appendIssue(detail, "快手自动补页异常", state.paginationError);
+        }
+        detail.append("\n\n验证方法：保存并开启过滤，重启对应应用，打开有主评论的评论区，再返回此处查看读取时间。规则未命中、过滤关闭或未打开评论区，都不能据此判定适配失效。")
+                .append("\n\n若始终没有读取记录，请检查 LSPosed 作用域；更新可能改变评论调用路径，需要重新适配。检测无法保证识别所有结构含义变化。")
+                .append("\n\n明确异常会尝试在对应应用中提示；同一应用版本、模块版本的同类异常只提醒一次，系统可能限制提示显示。");
+        LinearLayout content = dialogForm();
+        TextView body = text(detail.toString(), 14, R.color.muted, false); body.setLineSpacing(dp(4), 1); content.addView(body);
+        AlertDialog dialog = dialogBuilder("运行状态").setView(dialogScroll(content)).setPositiveButton("知道了", null).create();
+        dialog.setOnShowListener(d -> styleDialog(dialog)); dialog.show();
+    }
+    private void appendIssue(StringBuilder detail, String label, String error) {
+        if (!error.isEmpty()) detail.append("\n\n").append(label).append("：").append(error);
     }
 
     private void renderRule(String key, int index, JSONObject rule) {
@@ -380,7 +474,7 @@ public final class MainActivity extends Activity {
         menu.getMenu().add("高级配置").setOnMenuItemClickListener(item -> { editJson(); return true; });
         menu.getMenu().add("使用说明").setOnMenuItemClickListener(item -> {
             LinearLayout help = dialogForm();
-            TextView body = text("每个应用分别保存开关、模式和规则。切换应用保留本次未保存的编辑，强制停止模块后恢复上次保存的配置。\n\n黑名单隐藏命中评论，白名单只显示命中评论。同一规则内的条件需同时满足；多条规则命中任意一条即可。\n\n仅过滤主评论。修改后点击保存规则，再刷新对应应用评论区。首次启用需在 LSPosed 勾选对应应用并重启该应用。\n\n小红书原生评论不提供性别；开启性别过滤后，需要额外加载作者资料。加载期间先保留评论，失败或未填写按未知处理。关闭后，已有性别条件暂停，其余条件继续生效。\n\n模块 " + BuildConfig.VERSION_NAME + " · " + host.displayName + " " + host.versionName, 15, R.color.muted, false);
+            TextView body = text("每个应用分别保存开关、模式和规则。切换应用保留本次未保存的编辑，强制停止模块后恢复上次保存的配置。\n\n黑名单隐藏命中评论，白名单只显示命中评论。同一规则内的条件需同时满足；多条规则命中任意一条即可。\n\n仅过滤主评论。修改后点击保存规则，再刷新对应应用评论区。首次启用需在 LSPosed 勾选对应应用并重启该应用。\n\n小红书原生评论不提供性别；开启性别过滤后，需要额外加载作者资料。加载期间先保留评论，失败或未填写按未知处理。关闭后，已有性别条件暂停，其余条件继续生效。\n\n模块 " + BuildConfig.VERSION_NAME + " · " + host.displayName + " (适配基准 " + host.versionName + ")", 15, R.color.muted, false);
             body.setLineSpacing(dp(4), 1); help.addView(body);
             AlertDialog dialog = dialogBuilder("使用说明").setView(dialogScroll(help)).setPositiveButton("知道了", null).create();
             dialog.setOnShowListener(d -> styleDialog(dialog)); dialog.show(); return true;

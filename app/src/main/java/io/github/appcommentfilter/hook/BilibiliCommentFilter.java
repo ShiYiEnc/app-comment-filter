@@ -12,8 +12,13 @@ import java.util.List;
 public final class BilibiliCommentFilter {
     private final Class<?> type;
     private final Method root, parent, content, message, member, sex, control, location;
+    private final FilterDiagnostics diagnostics;
 
     public BilibiliCommentFilter(Class<?> type) throws ReflectiveOperationException {
+        this(type, FilterDiagnostics.NONE);
+    }
+    public BilibiliCommentFilter(Class<?> type, FilterDiagnostics diagnostics) throws ReflectiveOperationException {
+        this.diagnostics = diagnostics;
         this.type = type;
         root = type.getMethod("getRoot"); parent = type.getMethod("getParent");
         content = type.getMethod("getContent");
@@ -29,6 +34,7 @@ public final class BilibiliCommentFilter {
     public List<?> filter(List<?> original, RuleEngine rules) {
         if (!rules.enabled()) return original;
         List<Object> result = null;
+        int read = 0, removed = 0; Throwable failure = null;
         for (int i = 0; i < original.size(); i++) {
             Object item = original.get(i);
             boolean hide = false;
@@ -43,14 +49,18 @@ public final class BilibiliCommentFilter {
                                 : "女".equals(gender) || "F".equals(gender) ? Gender.F : Gender.UNKNOWN;
                         hide = rules.evaluate(new Comment((String) message.invoke(body),
                                 attr == null ? null : (String) location.invoke(attr), value, false)).hidden();
+                        read++;
                     }
                 }
-            } catch (ReflectiveOperationException | RuntimeException ignored) {
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
+                failure = error;
                 // A malformed item is retained even under a whitelist.
             }
             if (hide && result == null) result = new ArrayList<>(original.subList(0, i));
             if (!hide && result != null) result.add(item);
+            if (hide) removed++;
         }
+        diagnostics.onBatch(read, removed, failure);
         return result == null ? original : Collections.unmodifiableList(result);
     }
 }

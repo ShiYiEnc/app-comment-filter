@@ -17,6 +17,9 @@ public final class CommentSnapshotReader {
         location = commentApi.getMethod("getKAuthorArea");
         user = commentApi.getMethod("getKUser");
         sex = user.getReturnType().getMethod("getKUserSex");
+        if (type.getReturnType() != int.class || reply.getReturnType() != boolean.class
+                || text.getReturnType() != String.class || location.getReturnType() != String.class
+                || sex.getReturnType() != String.class) throw new NoSuchMethodException("Unexpected comment schema");
     }
 
     /** null means this item is outside the main-comment scope. */

@@ -49,6 +49,7 @@ final class XiaohongshuGenderResolver {
 
     XiaohongshuGenderCache.Result lookup(String userId) { return cache.lookup(userId); }
     XiaohongshuGenderCache.Result lookup(String userId, boolean mayRequest) { return cache.lookup(userId, mayRequest); }
+    void setDiagnostics(java.util.function.Consumer<Boolean> diagnostics) { cache.setDiagnostics(diagnostics); }
 
     void close() {
         setEnabled(false);

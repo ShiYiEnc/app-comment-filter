@@ -21,7 +21,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- Read-only Binder UID allowlist is enforced in ConfigProvider.query(). -->
+        <!-- Binder UID allowlist covers rule reads and each host's own diagnostic reports. -->
         <provider android:name=".config.ConfigProvider" android:authorities="${applicationId}.config" tools:ignore="ExportedContentProvider"
             android:exported="true" android:grantUriPermissions="false" />
     </application>

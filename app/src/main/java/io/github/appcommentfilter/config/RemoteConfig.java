@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.CopyOnWriteArrayList;
 import io.github.appcommentfilter.core.RuleEngine;
 import de.robv.android.xposed.XposedBridge;
+import io.github.appcommentfilter.hook.HookStatus;
 
 /** Binder/JSON work stays on a worker; callbacks only read an immutable snapshot. */
 public final class RemoteConfig {
@@ -22,6 +23,7 @@ public final class RemoteConfig {
     private volatile long lastAttempt = -5000;
     private long revision = -1;
     private boolean failureLogged;
+    private final HookStatus status;
     private final CopyOnWriteArrayList<Runnable> listeners = new CopyOnWriteArrayList<>();
 
     public RemoteConfig(Context context) {
@@ -29,6 +31,11 @@ public final class RemoteConfig {
     }
 
     public RemoteConfig(Context context, HostApp app) {
+        this(context, app, null);
+    }
+
+    public RemoteConfig(Context context, HostApp app, HookStatus status) {
+        this.status = status;
         this.context = context.getApplicationContext() == null ? context : context.getApplicationContext();
         this.uri = ConfigStore.uri(app);
         this.logPrefix = "[CommentFilter][" + app.packageName + "] ";
@@ -73,11 +80,11 @@ public final class RemoteConfig {
         try (Cursor cursor = context.getContentResolver().query(uri, null, null, null, null)) {
             if (cursor == null || !cursor.moveToFirst()) throw new IllegalStateException("No configuration");
             long nextRevision = cursor.getLong(cursor.getColumnIndexOrThrow("revision"));
-            if (nextRevision == revision) return;
+            if (nextRevision == revision) { configAvailable(); return; }
             RuleEngine next = RuleEngine.compileJson(cursor.getString(cursor.getColumnIndexOrThrow("json")));
             engine = next;
             revision = nextRevision;
-            failureLogged = false;
+            configAvailable();
             XposedBridge.log(logPrefix + "Rules loaded, revision=" + revision);
             for (Runnable listener : listeners) {
                 try { listener.run(); }
@@ -86,8 +93,14 @@ public final class RemoteConfig {
         } catch (RuntimeException e) {
             if (!failureLogged) {
                 failureLogged = true;
+                if (status != null) status.issue("config", e);
                 XposedBridge.log(logPrefix + "Rules unavailable; keeping last valid snapshot (" + e.getClass().getSimpleName() + ")");
             }
         }
+    }
+
+    private void configAvailable() {
+        if (failureLogged && status != null) status.issue("config", null);
+        failureLogged = false;
     }
 }

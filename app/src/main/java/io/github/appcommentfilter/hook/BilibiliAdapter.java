@@ -19,10 +19,10 @@ public final class BilibiliAdapter {
 
     public BilibiliAdapter(boolean hd) { this.hd = hd; }
 
-    public void install(ClassLoader loader, RemoteConfig config) throws ReflectiveOperationException {
+    public void install(ClassLoader loader, RemoteConfig config, HookStatus status) throws ReflectiveOperationException {
         List<Binding> bindings = new ArrayList<>();
-        resolve(bindings, loader, "MainListReply", "ReplyInfo", "getRepliesList", "getTopRepliesList");
-        if (!hd) resolve(bindings, loader, "KMainListReply", "KReplyInfo", "getReplies", "getTopReplies");
+        resolve(bindings, loader, status, "MainListReply", "ReplyInfo", "getRepliesList", "getTopRepliesList");
+        if (!hd) resolve(bindings, loader, status, "KMainListReply", "KReplyInfo", "getReplies", "getTopReplies");
         List<XC_MethodHook.Unhook> installed = new ArrayList<>();
         AtomicBoolean logged = new AtomicBoolean();
         try {
@@ -34,21 +34,24 @@ public final class BilibiliAdapter {
                         List<?> filtered = binding.filter.filter(original, config.snapshot());
                         if (filtered != original) param.setResult(filtered);
                     } catch (RuntimeException | LinkageError e) {
+                        status.onBatch(0, 0, e);
                         if (logged.compareAndSet(false, true)) XposedBridge.log("[CommentFilter] Bilibili list retained: " + e.getClass().getSimpleName());
                     }
                 }
             }));
         } catch (RuntimeException | LinkageError e) {
-            for (XC_MethodHook.Unhook hook : installed) hook.unhook();
+            for (XC_MethodHook.Unhook hook : installed) {
+                try { hook.unhook(); } catch (RuntimeException | LinkageError ignored) { }
+            }
             throw e;
         }
         XposedBridge.log("[CommentFilter] Bilibili adapter ready: " + (hd ? HD_VERSION_NAME : VERSION_NAME));
     }
 
-    private static void resolve(List<Binding> out, ClassLoader loader, String response, String reply,
+    private static void resolve(List<Binding> out, ClassLoader loader, FilterDiagnostics diagnostics, String response, String reply,
                                 String... names) throws ReflectiveOperationException {
         Class<?> type = Class.forName(API + response, false, loader);
-        BilibiliCommentFilter filter = new BilibiliCommentFilter(Class.forName(API + reply, false, loader));
+        BilibiliCommentFilter filter = new BilibiliCommentFilter(Class.forName(API + reply, false, loader), diagnostics);
         for (String name : names) {
             Method getter = type.getDeclaredMethod(name);
             if (!List.class.isAssignableFrom(getter.getReturnType())) throw new NoSuchMethodException(name);

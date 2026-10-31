@@ -8,7 +8,7 @@ import android.net.Uri;
 import android.os.Binder;
 import android.os.Process;
 
-/** Narrow read-only bridge: module UID and scoped host UID only. */
+/** Rules are read-only to hosts. Diagnostics are writable only for the caller's own app. */
 public final class ConfigProvider extends ContentProvider {
     @Override public boolean onCreate() { return true; }
 
@@ -38,6 +38,12 @@ public final class ConfigProvider extends ContentProvider {
     }
 
     @Override public String getType(Uri uri) { return "vnd.android.cursor.item/vnd.appcommentfilter.rules"; }
+    @Override public android.os.Bundle call(String method, String arg, android.os.Bundle extras) {
+        if (!"reportStatus".equals(method)) throw new IllegalArgumentException("Unknown operation");
+        HostApp app = HostApp.fromPackage(arg);
+        checkCaller(app);
+        return RuntimeStatusStore.record(providerContext(), app, extras);
+    }
     @Override public Uri insert(Uri uri, ContentValues values) { throw new SecurityException("Read only"); }
     @Override public int delete(Uri uri, String selection, String[] args) { throw new SecurityException("Read only"); }
     @Override public int update(Uri uri, ContentValues values, String selection, String[] args) { throw new SecurityException("Read only"); }

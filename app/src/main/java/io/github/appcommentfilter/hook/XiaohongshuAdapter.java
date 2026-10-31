@@ -22,13 +22,16 @@ public final class XiaohongshuAdapter {
     private XiaohongshuGenderResolver genders;
     private XiaohongshuProjection projection;
     private RemoteConfig config;
+    private HookStatus status;
+    private Throwable profileFailure;
     private Method notify;
     private boolean refreshScheduled;
     private boolean admitProfilesOnRefresh;
     private final ThreadLocal<Boolean> cachedProfilesOnly = new ThreadLocal<>();
 
-    public void install(ClassLoader loader, RemoteConfig config) throws ReflectiveOperationException {
+    public void install(ClassLoader loader, RemoteConfig config, HookStatus status) throws ReflectiveOperationException {
         this.config = config;
+        this.status = status;
         Class<?> info = Class.forName("com.xingin.entities.CommentCommentInfo", false, loader);
         String[] names = {"com.xingin.comment.consumer.list.CommentListAdapter",
                 "com.xingin.commentpanel.panel.comment.list.CommentListAdapter"};
@@ -49,23 +52,30 @@ public final class XiaohongshuAdapter {
         Class<?> controller = Class.forName("com.xingin.comment.consumer.list.AbsCommentListController", false, loader);
         Method delete = controller.getDeclaredMethod("N2", String.class);
         Method getAdapter = controller.getMethod("j2");
-        try { genders = new XiaohongshuGenderResolver(loader, main, this::scheduleReapply); }
+        Class<?> rootRow = Class.forName("uz7.d", false, loader);
+        Class<?> commentRow = Class.forName("uz7.a", false, loader);
+        Class<?> childRow = Class.forName("uz7.e", false, loader);
+        try {
+            genders = new XiaohongshuGenderResolver(loader, main, this::scheduleReapply);
+            genders.setDiagnostics(success -> status.issue("profile", success ? null : new ProfileRequestFailed()));
+        }
         catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
             // Profile symbols are optional: their absence must not disable text/location filtering.
+            profileFailure = error;
             XposedBridge.log("[CommentFilter] Xiaohongshu profile lookup unavailable (" + error.getClass().getSimpleName() + ")");
         }
         XiaohongshuCommentFilter filter;
         try {
-            filter = new XiaohongshuCommentFilter(
-                    Class.forName("uz7.d", false, loader), Class.forName("uz7.a", false, loader),
-                    Class.forName("uz7.e", false, loader), info, userId -> {
-                        if (genders == null) return new XiaohongshuCommentFilter.GenderState(false, Gender.UNKNOWN);
+            filter = new XiaohongshuCommentFilter(rootRow, commentRow, childRow, info, genders == null ? null : userId -> {
                         XiaohongshuGenderCache.Result result = genders.lookup(userId, !Boolean.TRUE.equals(cachedProfilesOnly.get()));
                         return new XiaohongshuCommentFilter.GenderState(result.pending, result.gender);
-                    });
+                    }, status);
         } catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
-            if (genders != null) genders.close();
-            throw error;
+            if (genders == null) throw error;
+            genders.close(); genders = null; profileFailure = error;
+            // Author fields belong to the optional gender feature too. The second binding
+            // still checks every mandatory text/location/projection field and may fail.
+            filter = new XiaohongshuCommentFilter(rootRow, commentRow, childRow, info, null, status);
         }
         projection = new XiaohongshuProjection(filter);
         List<XC_MethodHook.Unhook> installed = new ArrayList<>();
@@ -89,7 +99,7 @@ public final class XiaohongshuAdapter {
                         if (filtered != original) {
                             param.args[0] = filtered;
                         }
-                    } catch (RuntimeException e) { logFailure(e); }
+                    } catch (RuntimeException | LinkageError e) { logFailure(e); }
                 }
             }));
             for (Method getter : getters) installed.add(XposedBridge.hookMethod(getter, new XC_MethodHook() {
@@ -109,7 +119,9 @@ public final class XiaohongshuAdapter {
                 }
             }));
         } catch (RuntimeException | LinkageError e) {
-            for (XC_MethodHook.Unhook hook : installed) hook.unhook();
+            for (XC_MethodHook.Unhook hook : installed) {
+                try { hook.unhook(); } catch (RuntimeException | LinkageError ignored) { }
+            }
             if (genders != null) genders.close();
             throw e;
         }
@@ -121,8 +133,13 @@ public final class XiaohongshuAdapter {
     }
 
     private void configureGender(RuleEngine rules) {
+        if (profileFailure != null) status.issue("profile",
+                rules.enabled() && rules.resolveProfileGender() && rules.usesGenderRules() ? profileFailure : null);
         if (genders != null) genders.setEnabled(rules.enabled() && rules.resolveProfileGender() && rules.usesGenderRules());
+        if (!(rules.enabled() && rules.resolveProfileGender() && rules.usesGenderRules())) status.issue("profile", null);
     }
+
+    private static final class ProfileRequestFailed extends RuntimeException { private static final long serialVersionUID = 1L; }
 
     private void scheduleReapply() {
         scheduleReapply(false);
@@ -163,7 +180,8 @@ public final class XiaohongshuAdapter {
         }
     }
 
-    private void logFailure(Exception error) {
+    private void logFailure(Throwable error) {
+        status.onBatch(0, 0, error);
         if (failureLogged.compareAndSet(false, true))
             XposedBridge.log("[CommentFilter] Xiaohongshu projection unavailable (" + error.getClass().getSimpleName() + ")");
     }

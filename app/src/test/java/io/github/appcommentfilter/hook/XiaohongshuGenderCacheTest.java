@@ -8,6 +8,17 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public final class XiaohongshuGenderCacheTest {
+    @Test public void diagnosticsDistinguishUnknownGenderFromTimeoutAndIgnoreCancelledRequests() {
+        Fixture f = new Fixture(); List<Boolean> outcomes = new ArrayList<>();
+        f.cache.setDiagnostics(outcomes::add); f.enable();
+        f.cache.lookup("unknown"); f.clock.advance(0); f.transport.calls.get(0).resolve(2);
+        assertEquals(List.of(true), outcomes);
+        f.cache.lookup("timeout"); f.clock.advance(1_000);
+        assertEquals(List.of(true, false), outcomes);
+        f.cache.lookup("cancelled"); f.clock.advance(0); f.cache.setEnabled(false);
+        f.transport.calls.get(2).resolve(1); f.clock.advance(2_000);
+        assertEquals(List.of(true, false), outcomes);
+    }
     private static final class Task implements Comparable<Task>, XiaohongshuGenderCache.Cancel {
         final long at, order;
         final Runnable command;

@@ -45,6 +45,7 @@ final class XiaohongshuGenderCache {
     private final Scheduler scheduler;
     private final Transport transport;
     private final Runnable changed;
+    private java.util.function.Consumer<Boolean> diagnostics = ignored -> { };
     private final int maxConcurrent, maxQueued, maxCached;
     private final long knownTtl, unknownTtl, errorTtl, timeoutMillis, startGap;
     private final Map<String, Entry> cached = new LinkedHashMap<>(32, .75f, true);
@@ -117,6 +118,8 @@ final class XiaohongshuGenderCache {
         synchronized (this) { closed = true; }
     }
 
+    synchronized void setDiagnostics(java.util.function.Consumer<Boolean> diagnostics) { this.diagnostics = diagnostics; }
+
     private synchronized void arm() {
         if (!enabled || closed || pump != null || active >= maxConcurrent || requests.size() == active) return;
         pump = scheduler.schedule(this::startOne, Math.max(0, nextStart - scheduler.now()));
@@ -171,7 +174,10 @@ final class XiaohongshuGenderCache {
         synchronized (this) {
             deliver = enabled && !closed && request.epoch == epoch;
         }
-        if (deliver) changed.run();
+        if (deliver) {
+            diagnostics.accept(success && request.userId.equals(returnedUserId));
+            changed.run();
+        }
     }
 
     private boolean current(Request request) {

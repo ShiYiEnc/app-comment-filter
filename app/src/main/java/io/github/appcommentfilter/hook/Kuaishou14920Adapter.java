@@ -30,50 +30,53 @@ public final class Kuaishou14920Adapter {
         Scope(Object response, List<?> filtered) { this.response = response; this.filtered = filtered; }
     }
 
-    public void install(ClassLoader loader, RemoteConfig config, android.app.Application application) throws ReflectiveOperationException {
+    public void install(ClassLoader loader, RemoteConfig config, android.app.Application application, HookStatus status) throws ReflectiveOperationException {
         Class<?> pageList = Class.forName(PAGE_LIST, false, loader);
         Class<?> responseApi = Class.forName("w2b.q", false, loader);
-        CommentListFilter filter = new CommentListFilter(new CommentSnapshotReader(Class.forName("dpb.d", false, loader)));
+        CommentListFilter filter = new CommentListFilter(new CommentSnapshotReader(Class.forName("dpb.d", false, loader)), status);
         Method parser = pageList.getDeclaredMethod("w1", responseApi);
         Method localComments = responseApi.getMethod("getKLocalComments");
         if (parser.getReturnType() != void.class || !List.class.isAssignableFrom(localComments.getReturnType())) {
             throw new NoSuchMethodException("Unexpected parser/list signature");
         }
-        PaginationCoordinator pagination = new PaginationCoordinator(application, loader, pageList, config, filter);
+        PaginationCoordinator pagination = new PaginationCoordinator(application, loader, pageList, config, filter, status);
         pagination.install();
-        XposedBridge.hookMethod(parser, new XC_MethodHook() {
-            @Override protected void beforeHookedMethod(MethodHookParam param) {
-                Scope previous = current.get();
-                param.setObjectExtra("ks.previous", previous);
-                // A nested parser must never inherit an outer response substitution.
-                current.remove();
-                try {
-                    io.github.appcommentfilter.core.RuleEngine rules = config.snapshot();
-                    if (!rules.enabled()) return;
-                    Object response = param.args[0];
-                    if (response == null) return;
-                    Method getter = response.getClass().getMethod("getKLocalComments");
-                    installGetter(getter);
-                    List<?> original = (List<?>) getter.invoke(response);
-                    if (original == null) return;
-                    List<?> filtered = filter.filter(original, rules);
-                    if (filtered != original) current.set(new Scope(response, filtered));
-                    param.setObjectExtra("ks.page", pagination.beforeParse(param.thisObject, response, filtered != original));
-                    record(original.size() - filtered.size());
-                } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
-                    if (failureLogged.compareAndSet(false, true)) {
-                        XposedBridge.log("[KSFilter] Response adapter failed; keeping comments (" + e.getClass().getSimpleName() + ")");
+        try {
+            XposedBridge.hookMethod(parser, new XC_MethodHook() {
+                @Override protected void beforeHookedMethod(MethodHookParam param) {
+                    Scope previous = current.get();
+                    param.setObjectExtra("ks.previous", previous);
+                    // A nested parser must never inherit an outer response substitution.
+                    current.remove();
+                    try {
+                        io.github.appcommentfilter.core.RuleEngine rules = config.snapshot();
+                        if (!rules.enabled()) return;
+                        Object response = param.args[0];
+                        if (response == null) return;
+                        Method getter = response.getClass().getMethod("getKLocalComments");
+                        installGetter(getter);
+                        List<?> original = (List<?>) getter.invoke(response);
+                        if (original == null) return;
+                        List<?> filtered = filter.filter(original, rules);
+                        if (filtered != original) current.set(new Scope(response, filtered));
+                        param.setObjectExtra("ks.page", pagination.beforeParse(param.thisObject, response, filtered != original));
+                        record(original.size() - filtered.size());
+                    } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                        status.onBatch(0, 0, e);
+                        if (failureLogged.compareAndSet(false, true)) {
+                            XposedBridge.log("[KSFilter] Response adapter failed; keeping comments (" + e.getClass().getSimpleName() + ")");
+                        }
                     }
                 }
-            }
 
-            @Override protected void afterHookedMethod(MethodHookParam param) {
-                Scope previous = (Scope) param.getObjectExtra("ks.previous");
-                if (previous == null) current.remove(); else current.set(previous);
-                PaginationCoordinator.Page page = (PaginationCoordinator.Page) param.getObjectExtra("ks.page");
-                if (page != null) pagination.afterParse(param.thisObject, page, param.hasThrowable());
-            }
-        });
+                @Override protected void afterHookedMethod(MethodHookParam param) {
+                    Scope previous = (Scope) param.getObjectExtra("ks.previous");
+                    if (previous == null) current.remove(); else current.set(previous);
+                    PaginationCoordinator.Page page = (PaginationCoordinator.Page) param.getObjectExtra("ks.page");
+                    if (page != null) pagination.afterParse(param.thisObject, page, param.hasThrowable());
+                }
+            });
+        } catch (RuntimeException | LinkageError error) { pagination.uninstall(); throw error; }
         XposedBridge.log("[KSFilter] Adapter ready: 14.9.20.50799, KMP w1(w2b.q), inline footer "
                 + io.github.appcommentfilter.BuildConfig.VERSION_NAME);
     }

@@ -2,7 +2,6 @@ package io.github.appcommentfilter.hook;
 
 import android.app.Application;
 import android.content.Context;
-import android.content.pm.PackageInfo;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
@@ -24,38 +23,24 @@ public final class ModuleEntry implements IXposedHookLoadPackage {
             @Override protected void afterHookedMethod(MethodHookParam attach) {
                 if (!installed.compareAndSet(false, true)) return;
                 Context context = (Context) attach.args[0];
+                HookStatus status = new HookStatus(context, host);
                 try {
-                    PackageInfo info = context.getPackageManager().getPackageInfo(host.packageName, 0);
-                    if (!host.versionName.equals(info.versionName) || versionCode(host) != info.getLongVersionCode()) {
-                        XposedBridge.log("[CommentFilter] Unsupported " + host.packageName + " version "
-                                + info.versionName + "/" + info.getLongVersionCode() + "; filtering disabled");
-                        return;
-                    }
                     ClassLoader loader = context.getClassLoader();
-                    RemoteConfig config = new RemoteConfig(context, host);
+                    RemoteConfig config = new RemoteConfig(context, host, status);
                     switch (host) {
-                        case KUAISHOU -> new Kuaishou14920Adapter().install(loader, config, (Application) attach.thisObject);
-                        case BILIBILI -> new BilibiliAdapter(false).install(loader, config);
-                        case BILIBILI_HD -> new BilibiliAdapter(true).install(loader, config);
-                        case XIAOHONGSHU -> new XiaohongshuAdapter().install(loader, config);
-                        case DOUYIN -> new Douyin4090Adapter().install(loader, config);
+                        case KUAISHOU -> new Kuaishou14920Adapter().install(loader, config, (Application) attach.thisObject, status);
+                        case BILIBILI -> new BilibiliAdapter(false).install(loader, config, status);
+                        case BILIBILI_HD -> new BilibiliAdapter(true).install(loader, config, status);
+                        case XIAOHONGSHU -> new XiaohongshuAdapter().install(loader, config, status);
+                        case DOUYIN -> new Douyin4090Adapter().install(loader, config, status);
                     }
+                    status.installed();
                 } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+                    status.installFailed(e);
                     XposedBridge.log("[CommentFilter] " + host.packageName + " adapter unavailable; filtering disabled (" + e.getClass().getSimpleName() + ")");
-                } catch (android.content.pm.PackageManager.NameNotFoundException e) {
-                    XposedBridge.log("[CommentFilter] Host package identity unavailable; filtering disabled");
                 }
             }
         });
     }
 
-    private static long versionCode(HostApp app) {
-        return switch (app) {
-            case KUAISHOU -> Kuaishou14920Adapter.VERSION_CODE;
-            case BILIBILI -> BilibiliAdapter.VERSION_CODE;
-            case BILIBILI_HD -> BilibiliAdapter.HD_VERSION_CODE;
-            case XIAOHONGSHU -> XiaohongshuAdapter.VERSION_CODE;
-            case DOUYIN -> Douyin4090Adapter.VERSION_CODE;
-        };
-    }
 }

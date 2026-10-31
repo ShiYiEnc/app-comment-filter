@@ -11,8 +11,13 @@ import java.util.List;
 final class DouyinCommentReader {
     private final Class<?> commentClass;
     private final Field text, location, user, commentUser, gender, replyId, level, commentType;
+    private final FilterDiagnostics diagnostics;
 
     DouyinCommentReader(Class<?> commentClass, Class<?> userClass) throws ReflectiveOperationException {
+        this(commentClass, userClass, FilterDiagnostics.NONE);
+    }
+    DouyinCommentReader(Class<?> commentClass, Class<?> userClass, FilterDiagnostics diagnostics) throws ReflectiveOperationException {
+        this.diagnostics = diagnostics;
         this.commentClass = commentClass;
         text = field(commentClass, "text", String.class);
         location = field(commentClass, "ipLabel", String.class);
@@ -42,18 +47,23 @@ final class DouyinCommentReader {
     List<?> filter(List<?> original, RuleEngine rules) {
         if (!rules.enabled()) return original;
         List<Object> result = null;
+        int read = 0, removed = 0; Throwable failure = null;
         for (int i = 0; i < original.size(); i++) {
             Object item = original.get(i);
             boolean hide = false;
             try {
                 Comment comment = read(item);
                 hide = comment != null && rules.evaluate(comment).hidden();
-            } catch (ReflectiveOperationException | RuntimeException ignored) {
+                if (comment != null) read++;
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
+                failure = error;
                 // A broken object is not equivalent to an unknown server attribute.
             }
             if (hide && result == null) result = new ArrayList<>(original.subList(0, i));
             if (!hide && result != null) result.add(item);
+            if (hide) removed++;
         }
+        diagnostics.onBatch(read, removed, failure);
         return result == null ? original : result;
     }
 

@@ -16,12 +16,14 @@ public final class Douyin4090Adapter {
     public static final long VERSION_CODE = 400901;
     private static final String PREFIX = "com.ss.android.ugc.aweme.";
     private final AtomicBoolean failureLogged = new AtomicBoolean();
+    private HookStatus status;
 
-    public void install(ClassLoader loader, RemoteConfig config) throws ReflectiveOperationException {
+    public void install(ClassLoader loader, RemoteConfig config, HookStatus status) throws ReflectiveOperationException {
+        this.status = status;
         Class<?> response = Class.forName(PREFIX + "comment.model.CommentItemList", false, loader);
         DouyinCommentReader reader = new DouyinCommentReader(
                 Class.forName(PREFIX + "comment.model.Comment", false, loader),
-                Class.forName(PREFIX + "profile.model.User", false, loader));
+                Class.forName(PREFIX + "profile.model.User", false, loader), status);
         DouyinResponseCopy copies = new DouyinResponseCopy(response);
         Class<?> mainRequest = Class.forName(PREFIX + "comment.data.list.CommentListPageNetRequest", false, loader);
         Class<?> treeRequest = Class.forName(PREFIX + "comment.data.manager.FetchCommentTreeListRequest", false, loader);
@@ -53,7 +55,7 @@ public final class Douyin4090Adapter {
                         if (items == null) return;
                         List<?> filtered = reader.filter(items, rules);
                         if (filtered != items) param.args[0] = copies.withItems(original, filtered);
-                    } catch (ReflectiveOperationException | RuntimeException e) { logFailure(e); }
+                    } catch (ReflectiveOperationException | RuntimeException | LinkageError e) { logFailure(e); }
                 }
             }));
             installed.add(XposedBridge.hookMethod(onMore, new XC_MethodHook() {
@@ -69,7 +71,7 @@ public final class Douyin4090Adapter {
                         if (items == null) return;
                         List<?> filtered = reader.filter(items, rules);
                         if (filtered != items) param.args[0] = copies.withItems(original, filtered);
-                    } catch (ReflectiveOperationException | RuntimeException e) { logFailure(e); }
+                    } catch (ReflectiveOperationException | RuntimeException | LinkageError e) { logFailure(e); }
                 }
             }));
             installed.add(XposedBridge.hookMethod(getter, new XC_MethodHook() {
@@ -79,7 +81,7 @@ public final class Douyin4090Adapter {
                         List<?> original = (List<?>) param.getResult();
                         List<?> filtered = reader.filter(original, config.snapshot());
                         if (filtered != original) param.setResult(filtered);
-                    } catch (RuntimeException e) { logFailure(e); }
+                    } catch (RuntimeException | LinkageError e) { logFailure(e); }
                 }
             }));
         } catch (RuntimeException | LinkageError failure) {
@@ -91,7 +93,8 @@ public final class Douyin4090Adapter {
         XposedBridge.log("[CommentFilter] Douyin adapter ready: " + VERSION_NAME + ", main response dispatch");
     }
 
-    private void logFailure(Exception e) {
+    private void logFailure(Throwable e) {
+        status.onBatch(0, 0, e);
         if (failureLogged.compareAndSet(false, true)) {
             XposedBridge.log("[CommentFilter] Douyin row retained after adapter failure ("
                     + e.getClass().getSimpleName() + ")");
