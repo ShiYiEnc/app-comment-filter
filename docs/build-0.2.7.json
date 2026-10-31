@@ -1,0 +1,63 @@
+{
+  "date": "2026-10-31",
+  "package": "io.github.appcommentfilter",
+  "versionName": "0.2.7",
+  "versionCode": 15,
+  "apk": "D:\\Projects\\Git_project\\app-comment-filter\\releases\\comment-filter-0.2.7-debug.apk",
+  "sizeBytes": 709513,
+  "sha256": "6b2a000f89e25fa4466d4beafa21ec1e5c0a9323f0057ac7656ed8c92f47b037",
+  "signature": {
+    "verified": true,
+    "certificateSha256": "4e8e88c4b8ccdb16d8cd8027933dc0ff497de9bfecc15fed03e270ed61f465df"
+  },
+  "build": "core:test, app:testDebugUnitTest, assembleDebug, lintDebug passed",
+  "unitTests": {
+    "app": {
+      "tests": 102,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "core": {
+      "tests": 62,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "lint": [
+    {
+      "id": "OldTargetApi",
+      "severity": "Warning"
+    },
+    {
+      "id": "AndroidGradlePluginVersion",
+      "severity": "Warning"
+    }
+  ],
+  "realDevice": {
+    "hostVersion": "40.9.0 / 400901",
+    "hostApi": 36,
+    "installedApkSha256MatchesFinal": true,
+    "finalKmpPagesObserved": 7,
+    "finalRead": 140,
+    "finalHidden": 134,
+    "finalAutomaticExtraPages": 4,
+    "finalServerHasMore": false,
+    "finalErrors": {
+      "runtime": "",
+      "pagination": "",
+      "install": "",
+      "config": ""
+    },
+    "candidateObservations": {
+      "boundedFiveExtraPagesThenStop": true,
+      "nativeManualClickStartsNewBudget": true,
+      "emptyVisiblePageThenAutoRequestFindsOneVisibleComment": true,
+      "note": "Same continuation logic before final optional-feature error isolation and issue recovery cleanup."
+    },
+    "savedRuleFilesUnchanged": 5,
+    "privacy": "Raw real-device logs, screenshots, rule snapshots and identifiers are not committed."
+  },
+  "limitations": "Verified current KMP branch and existing rules on one real device. No claim that classic experimental branches, pending-request cancellation under every lifecycle race, network failures, or future host versions were exercised on device. Cancellation/generation/budget/cursor behavior is covered by unit tests and source/lifecycle guards. Native HAS_MORE footer styling remains; a Toast explains the five-page limit."
+}

@@ -42,6 +42,12 @@ public final class HookStatus implements FilterDiagnostics {
     public void issue(String feature, Throwable error) {
         if (health.issue(feature, error == null ? "" : HookHealth.errorName(error))) schedule(error != null);
     }
+    public void emptyPageLimit() {
+        main.post(() -> {
+            try { Toast.makeText(context, "评论过滤：已连续补页5次，可点击评论区底部继续查找", Toast.LENGTH_LONG).show(); }
+            catch (RuntimeException ignored) { }
+        });
+    }
     @Override public void onBatch(int read, int hidden, Throwable error) {
         boolean changed = health.batch(read, hidden, error, System.currentTimeMillis());
         if (read > 0 || error != null) schedule(changed);

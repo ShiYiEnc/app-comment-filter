@@ -78,6 +78,7 @@ public final class Douyin4090Adapter {
         List<XC_MethodHook.Unhook> installed = new ArrayList<>();
         try {
             if (kmp != null) {
+                final KmpExtras extras = installKmpExtras(loader, response, kmp, config, status, installed);
                 final DouyinHookDiagnostics probe = new DouyinHookDiagnostics("kmp " + kmp.method, XposedBridge::log);
                 XposedBridge.log("[CommentFilter][DYProbe] install kmp responseArg=" + kmp.responseArgument + " " + kmp.method);
                 installed.add(XposedBridge.hookMethod(kmp.method, new XC_MethodHook() {
@@ -89,6 +90,16 @@ public final class Douyin4090Adapter {
                             List<?> items = rules.enabled() || DouyinHookDiagnostics.sample(hit) ? copies.items(original) : null;
                             probe.report(hit, rules.enabled(), param.thisObject, original, items, reader);
                             copies.filterArgument(param.args, kmp.responseArgument, reader, rules);
+                            if (extras != null) {
+                                try {
+                                    extras.trace.consumed(param.thisObject, param.args[0], original, items,
+                                            copies.items(param.args[kmp.responseArgument]));
+                                } catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
+                                    extras.paging.fail(param.thisObject, error);
+                                }
+                                extras.paging.page(param.thisObject, param.args[0], original, items,
+                                        copies.items(param.args[kmp.responseArgument]), rules);
+                            }
                         } catch (ReflectiveOperationException | RuntimeException | LinkageError e) { logFailure(e); }
                     }
                 }));
@@ -173,6 +184,51 @@ public final class Douyin4090Adapter {
         }
         XposedBridge.log("[CommentFilter] Douyin response consumers ready: classic=" + consumers.size()
                 + ", kmp=" + (kmp == null ? "absent" : kmp.method) + ", baseline " + VERSION_NAME);
+    }
+
+    private static final class KmpExtras {
+        final DouyinPageTrace trace;
+        final DouyinKmpPaging paging;
+        KmpExtras(DouyinPageTrace trace, DouyinKmpPaging paging) { this.trace = trace; this.paging = paging; }
+    }
+
+    private KmpExtras installKmpExtras(ClassLoader loader, Class<?> response,
+            DouyinConsumerBindings.KmpConsumer kmp, RemoteConfig config, HookStatus status,
+            List<XC_MethodHook.Unhook> installed) {
+        List<XC_MethodHook.Unhook> optional = new ArrayList<>();
+        try {
+            Method completion = null;
+            for (Method candidate : kmp.method.getDeclaringClass().getDeclaredMethods()) {
+                if (java.lang.reflect.Modifier.isStatic(candidate.getModifiers()) || candidate.isBridge()
+                        || candidate.getReturnType() != void.class || candidate.getParameterCount() != 1
+                        || candidate.getParameterTypes()[0] != List.class) continue;
+                if (completion != null) throw new NoSuchMethodException("Ambiguous KMP completion");
+                completion = candidate;
+            }
+            if (completion == null) throw new NoSuchMethodException("No KMP completion");
+            DouyinPageTrace trace = new DouyinPageTrace(response, XposedBridge::log);
+            Class<?> vm = Class.forName("com.douyin.kmp.comment.comment.commentpanellist.list.KCmtListViewModel", false, loader);
+            DouyinKmpPaging paging = new DouyinKmpPaging(loader, vm, response, kmp, config, status, status::emptyPageLimit);
+            paging.install(vm, optional);
+            optional.add(XposedBridge.hookMethod(completion, new XC_MethodHook() {
+                @Override protected void afterHookedMethod(MethodHookParam param) {
+                    if (param.hasThrowable()) { paging.fail(param.thisObject, param.getThrowable()); return; }
+                    try { trace.completed(param.thisObject, (List<?>) param.args[0]); }
+                    catch (RuntimeException | LinkageError error) { paging.fail(param.thisObject, error); return; }
+                    paging.complete(param.thisObject);
+                }
+            }));
+            paging.observeConfig();
+            installed.addAll(optional);
+            return new KmpExtras(trace, paging);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
+            for (XC_MethodHook.Unhook hook : optional) {
+                try { hook.unhook(); } catch (RuntimeException | LinkageError ignored) { }
+            }
+            status.issue("pagination", error);
+            XposedBridge.log("[CommentFilter] Douyin empty-page continuation unavailable (" + error.getClass().getSimpleName() + ")");
+            return null;
+        }
     }
 
     private void logFailure(Throwable e) {

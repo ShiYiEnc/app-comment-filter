@@ -333,7 +333,7 @@ public final class MainActivity extends Activity {
             appendIssue(detail, "适配安装失败", state.installError);
             appendIssue(detail, "评论读取或处理异常", state.runtimeError);
             appendIssue(detail, "规则读取失败，沿用最后有效配置", state.configError);
-            appendIssue(detail, "快手自动补页异常", state.paginationError);
+            appendIssue(detail, "自动补页异常", state.paginationError);
         }
         detail.append("\n\n验证方法：保存并开启过滤，重启对应应用，打开有主评论的评论区，再返回此处查看读取时间。规则未命中、过滤关闭或未打开评论区，都不能据此判定适配失效。")
                 .append("\n\n若始终没有读取记录，请检查 LSPosed 作用域；更新可能改变评论调用路径，需要重新适配。检测无法保证识别所有结构含义变化。")

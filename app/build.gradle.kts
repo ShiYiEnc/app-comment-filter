@@ -8,8 +8,8 @@ android {
         applicationId = "io.github.appcommentfilter"
         minSdk = 28
         targetSdk = 36
-        versionCode = 14
-        versionName = "0.2.6"
+        versionCode = 15
+        versionName = "0.2.7"
         testInstrumentationRunner = "io.github.appcommentfilter.RuntimeStatusInstrumentation"
     }
     compileOptions {
