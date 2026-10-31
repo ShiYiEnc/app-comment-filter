@@ -72,4 +72,36 @@ final class DouyinCommentReader {
         if (field.getType() != type) throw new NoSuchFieldException(owner.getName() + "." + name);
         return field;
     }
+
+    /** Metadata only: excludes text, location, author fields and actual parent identifiers. */
+    String describe(List<?> items) {
+        if (items == null) return "items=null";
+        int main = 0, reply = 0, otherType = 0, foreign = 0, absent = 0, errors = 0, parentPresent = 0;
+        int sampled = Math.min(items.size(), 256);
+        java.util.Map<Integer, Integer> types = new java.util.LinkedHashMap<>();
+        java.util.Set<String> foreignTypes = new java.util.LinkedHashSet<>();
+        for (int i = 0; i < sampled; i++) {
+            Object item = items.get(i);
+            if (item == null) { absent++; continue; }
+            if (!commentClass.isInstance(item)) {
+                foreign++;
+                if (foreignTypes.size() < 3) foreignTypes.add(item.getClass().getName());
+                continue;
+            }
+            try {
+                String parent = (String) replyId.get(item);
+                boolean hasParent = parent != null && !parent.isEmpty() && !"0".equals(parent);
+                if (hasParent) parentPresent++;
+                Integer depth = (Integer) level.get(item);
+                int type = commentType.getInt(item);
+                if (types.containsKey(type) || types.size() < 8) types.put(type, types.getOrDefault(type, 0) + 1);
+                if (hasParent || (depth != null && depth >= 2)) reply++;
+                else if (type != 0 && type != 1) otherType++;
+                else main++;
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) { errors++; }
+        }
+        return "items=" + items.size() + " sampled=" + sampled + " main=" + main + " reply=" + reply
+                + " otherType=" + otherType + " foreign=" + foreign + " null=" + absent + " shapeErrors=" + errors
+                + " parentNonempty=" + parentPresent + " commentTypes=" + types + " foreignClasses=" + foreignTypes;
+    }
 }

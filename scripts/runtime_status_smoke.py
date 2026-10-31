@@ -103,7 +103,7 @@ try:
         detail = capture(scenario + '-detail')
         assert '99.0.0' in detail and '运行记录' in detail
         if scenario == 'partial':
-            assert 'ProfileRequestFailed' in detail
+            assert 'CommentShapeError' in detail
         adb('shell', 'input', 'keyevent', 'KEYCODE_BACK')
         results[scenario] = True
     adb('shell', 'cmd', 'uimode', 'night', 'yes')

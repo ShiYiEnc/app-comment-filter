@@ -36,6 +36,16 @@ public final class Douyin4090Adapter {
         } catch (ClassNotFoundException | NoSuchMethodException unavailable) {
             XposedBridge.log("[CommentFilter] Douyin legacy branch unavailable (" + unavailable.getClass().getSimpleName() + ")");
         }
+        DouyinConsumerBindings.KmpConsumer kmpCandidate = null;
+        try {
+            Class<?> kmpViewModel = Class.forName("com.douyin.kmp.comment.comment.commentpanellist.list.KCmtListViewModel", false, loader);
+            // A present but unrecognizable KMP implementation is a real binding failure.
+            // Only absence of this optional implementation permits a classic-only install.
+            kmpCandidate = DouyinConsumerBindings.kmp(kmpViewModel, response);
+        } catch (ClassNotFoundException absent) {
+            XposedBridge.log("[CommentFilter][DYProbe] KMP view model absent; classic-only adapter");
+        }
+        final DouyinConsumerBindings.KmpConsumer kmp = kmpCandidate;
         Class<?> treeRequest = Class.forName(PREFIX + "comment.data.manager.FetchCommentTreeListRequest", false, loader);
         Class<?> base = Class.forName(PREFIX + "comment.data.BaseCommentPageNetRequest", false, loader);
         Method dispatch = base.getDeclaredMethod("LJIIL", Object.class, Object.class);
@@ -57,58 +67,100 @@ public final class Douyin4090Adapter {
             XposedBridge.log("[CommentFilter] Douyin optional tree load-more callback unavailable");
         }
         final Field moreKind = callbackKind, moreOwner = callbackOwner;
+        final DouyinHookDiagnostics dispatchProbe = new DouyinHookDiagnostics("treeDispatch " + dispatch, XposedBridge::log);
+        final DouyinHookDiagnostics moreProbe = new DouyinHookDiagnostics("treeMore case=57 " + onMore, XposedBridge::log);
+        final DouyinHookDiagnostics getterProbe = new DouyinHookDiagnostics("getter " + getter, XposedBridge::log);
+        final java.util.concurrent.atomic.AtomicInteger configReports = new java.util.concurrent.atomic.AtomicInteger();
+        config.addListener(() -> {
+            int event = configReports.incrementAndGet();
+            if (event <= 8) XposedBridge.log("[CommentFilter][DYProbe] config event=" + event + " enabled=" + config.snapshot().enabled());
+        });
         List<XC_MethodHook.Unhook> installed = new ArrayList<>();
         try {
-            for (Method consumer : consumers) installed.add(XposedBridge.hookMethod(consumer, new XC_MethodHook() {
+            if (kmp != null) {
+                final DouyinHookDiagnostics probe = new DouyinHookDiagnostics("kmp " + kmp.method, XposedBridge::log);
+                XposedBridge.log("[CommentFilter][DYProbe] install kmp responseArg=" + kmp.responseArgument + " " + kmp.method);
+                installed.add(XposedBridge.hookMethod(kmp.method, new XC_MethodHook() {
+                    @Override protected void beforeHookedMethod(MethodHookParam param) {
+                        long hit = probe.enter();
+                        try {
+                            RuleEngine rules = config.snapshot();
+                            Object original = param.args[kmp.responseArgument];
+                            List<?> items = rules.enabled() || DouyinHookDiagnostics.sample(hit) ? copies.items(original) : null;
+                            probe.report(hit, rules.enabled(), param.thisObject, original, items, reader);
+                            copies.filterArgument(param.args, kmp.responseArgument, reader, rules);
+                        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) { logFailure(e); }
+                    }
+                }));
+            }
+            for (Method consumer : consumers) {
+                final DouyinHookDiagnostics probe = new DouyinHookDiagnostics("consumer " + consumer, XposedBridge::log);
+                XposedBridge.log("[CommentFilter][DYProbe] install consumer " + consumer);
+                installed.add(XposedBridge.hookMethod(consumer, new XC_MethodHook() {
                 @Override protected void beforeHookedMethod(MethodHookParam param) {
+                    long hit = probe.enter();
                     try {
                         RuleEngine rules = config.snapshot();
-                        if (!rules.enabled()) return;
                         Object original = param.args[0];
-                        List<?> items = copies.items(original);
+                        List<?> items = rules.enabled() || DouyinHookDiagnostics.sample(hit) ? copies.items(original) : null;
+                        probe.report(hit, rules.enabled(), param.thisObject, original, items, reader);
+                        if (!rules.enabled()) return;
                         if (items == null) return;
                         List<?> filtered = reader.filter(items, rules);
                         if (filtered != items) param.args[0] = copies.withItems(original, filtered);
                     } catch (ReflectiveOperationException | RuntimeException | LinkageError e) { logFailure(e); }
                 }
-            }));
+                }));
+            }
+            XposedBridge.log("[CommentFilter][DYProbe] install dispatch " + dispatch);
             installed.add(XposedBridge.hookMethod(dispatch, new XC_MethodHook() {
                 @Override protected void beforeHookedMethod(MethodHookParam param) {
+                    long hit = dispatchProbe.enter();
                     Class<?> owner = param.thisObject.getClass();
-                    if (owner != treeRequest) return;
                     try {
                         RuleEngine rules = config.snapshot();
-                        if (!rules.enabled()) return;
                         Object original = param.args[0];
-                        List<?> items = copies.items(original);
+                        List<?> items = (owner == treeRequest && rules.enabled()) || DouyinHookDiagnostics.sample(hit) ? copies.items(original) : null;
+                        dispatchProbe.report(hit, rules.enabled(), param.thisObject, original, items, reader);
+                        if (owner != treeRequest || !rules.enabled()) return;
                         if (items == null) return;
                         List<?> filtered = reader.filter(items, rules);
                         if (filtered != items) param.args[0] = copies.withItems(original, filtered);
                     } catch (ReflectiveOperationException | RuntimeException | LinkageError e) { logFailure(e); }
                 }
             }));
-            if (onMore != null) installed.add(XposedBridge.hookMethod(onMore, new XC_MethodHook() {
+            if (onMore != null) {
+                XposedBridge.log("[CommentFilter][DYProbe] install optional more case=57 " + onMore);
+                installed.add(XposedBridge.hookMethod(onMore, new XC_MethodHook() {
                 @Override protected void beforeHookedMethod(MethodHookParam param) {
                     try {
                         if (moreKind.getInt(param.thisObject) != 57) return;
+                        long hit = moreProbe.enter();
                         Object request = moreOwner.get(param.thisObject);
-                        if (request == null || request.getClass() != treeRequest) return;
                         RuleEngine rules = config.snapshot();
-                        if (!rules.enabled()) return;
                         Object original = param.args[0];
-                        List<?> items = copies.items(original);
+                        boolean tree = request != null && request.getClass() == treeRequest;
+                        List<?> items = (tree && rules.enabled()) || DouyinHookDiagnostics.sample(hit) ? copies.items(original) : null;
+                        moreProbe.report(hit, rules.enabled(), request, original, items, reader);
+                        if (!tree || !rules.enabled()) return;
                         if (items == null) return;
                         List<?> filtered = reader.filter(items, rules);
                         if (filtered != items) param.args[0] = copies.withItems(original, filtered);
                     } catch (ReflectiveOperationException | RuntimeException | LinkageError e) { logFailure(e); }
                 }
-            }));
+                }));
+            }
+            XposedBridge.log("[CommentFilter][DYProbe] install getter " + getter);
             installed.add(XposedBridge.hookMethod(getter, new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam param) {
-                    if (param.hasThrowable() || !(param.getResult() instanceof List<?>)) return;
+                    long hit = getterProbe.enter();
                     try {
+                        RuleEngine rules = config.snapshot();
+                        List<?> found = param.getResult() instanceof List<?> ? (List<?>) param.getResult() : null;
+                        getterProbe.report(hit, rules.enabled(), param.thisObject, param.getResult(), found, reader);
+                        if (param.hasThrowable() || found == null) return;
                         List<?> original = (List<?>) param.getResult();
-                        List<?> filtered = reader.filter(original, config.snapshot());
+                        List<?> filtered = reader.filter(original, rules);
                         if (filtered != original) param.setResult(filtered);
                     } catch (RuntimeException | LinkageError e) { logFailure(e); }
                 }
@@ -119,7 +171,8 @@ public final class Douyin4090Adapter {
             }
             throw failure;
         }
-        XposedBridge.log("[CommentFilter] Douyin response consumers ready: " + consumers.size() + ", baseline " + VERSION_NAME);
+        XposedBridge.log("[CommentFilter] Douyin response consumers ready: classic=" + consumers.size()
+                + ", kmp=" + (kmp == null ? "absent" : kmp.method) + ", baseline " + VERSION_NAME);
     }
 
     private void logFailure(Throwable e) {

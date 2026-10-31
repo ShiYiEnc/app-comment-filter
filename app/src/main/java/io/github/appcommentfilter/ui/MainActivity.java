@@ -38,13 +38,13 @@ public final class MainActivity extends Activity {
     private boolean observing;
     private JSONObject settings;
     private String visibleJson;
-    private LinearLayout ruleList, genderSettings;
+    private LinearLayout ruleList;
     private TextView modeHint, ruleHeading, runtimeTitle, runtimeSummary;
     private final android.os.Handler statusHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable statusRefresh = new Runnable() {
         @Override public void run() { updateRuntimeStatus(); statusHandler.postDelayed(this, 3000); }
     };
-    private Switch master, profileGender;
+    private Switch master;
     private Button blacklistTab, whitelistTab, saveButton, appSelector;
     private boolean saveRequested;
     private String requestedJson;
@@ -207,23 +207,6 @@ public final class MainActivity extends Activity {
         master.setOnCheckedChangeListener((v, checked) -> { if (!syncing) change("enabled", checked); });
         body.addView(activation);
 
-        genderSettings = column(); genderSettings.setId(R.id.xhs_gender_settings);
-        genderSettings.setPadding(dp(16), dp(12), dp(12), dp(14));
-        genderSettings.setBackground(shape(R.color.surface, 14));
-        LinearLayout genderRow = new LinearLayout(this); genderRow.setGravity(Gravity.CENTER_VERTICAL);
-        TextView genderTitle = text("启用性别过滤", 17, R.color.ink, true);
-        genderRow.addView(genderTitle, new LinearLayout.LayoutParams(0, -2, 1));
-        profileGender = new Switch(this); profileGender.setId(R.id.xhs_gender_filter_enabled);
-        profileGender.setSaveEnabled(false); profileGender.setMinHeight(dp(48));
-        profileGender.setContentDescription("启用小红书性别过滤");
-        profileGender.setOnCheckedChangeListener((view, checked) -> { if (!syncing) change("resolveProfileGender", checked); });
-        genderRow.addView(profileGender); genderSettings.addView(genderRow);
-        TextView genderNote = text("原生评论不提供性别，开启后需额外加载作者资料。加载期间先保留评论，失败或未填写按未知处理。", 14, R.color.muted, false);
-        genderNote.setId(R.id.xhs_gender_filter_note); genderNote.setLineSpacing(dp(3), 1);
-        genderNote.setPadding(0, dp(2), dp(4), 0); genderSettings.addView(genderNote);
-        genderRow.setOnClickListener(v -> profileGender.setChecked(!profileGender.isChecked()));
-        margin(body, genderSettings, 12, 0);
-
         margin(body, text("过滤模式", 14, R.color.muted, true), 24, 8);
         LinearLayout modes = new LinearLayout(this); modes.setPadding(dp(4), dp(4), dp(4), dp(4));
         modes.setBackground(shape(R.color.well, 12));
@@ -268,9 +251,7 @@ public final class MainActivity extends Activity {
         master.setContentDescription("启用" + host.displayName + "评论过滤");
         syncing = true;
         master.setChecked(settings.optBoolean("enabled", false));
-        profileGender.setChecked(settings.optBoolean("resolveProfileGender", false));
         syncing = false;
-        genderSettings.setVisibility(host == HostApp.XIAOHONGSHU ? View.VISIBLE : View.GONE);
         boolean black = activeKey().equals("blacklist");
         tab(blacklistTab, black); tab(whitelistTab, !black);
         JSONArray entries = array(settings, activeKey());
@@ -352,7 +333,6 @@ public final class MainActivity extends Activity {
             appendIssue(detail, "适配安装失败", state.installError);
             appendIssue(detail, "评论读取或处理异常", state.runtimeError);
             appendIssue(detail, "规则读取失败，沿用最后有效配置", state.configError);
-            appendIssue(detail, "小红书性别资料不可用或请求失败，可能与网络有关", state.profileError);
             appendIssue(detail, "快手自动补页异常", state.paginationError);
         }
         detail.append("\n\n验证方法：保存并开启过滤，重启对应应用，打开有主评论的评论区，再返回此处查看读取时间。规则未命中、过滤关闭或未打开评论区，都不能据此判定适配失效。")
@@ -416,11 +396,7 @@ public final class MainActivity extends Activity {
         CheckBox male = genderChoice(genders, "男", selected.contains("\"M\"")); male.setId(R.id.rule_gender_male);
         CheckBox female = genderChoice(genders, "女", selected.contains("\"F\"")); female.setId(R.id.rule_gender_female);
         CheckBox unknownGender = genderChoice(genders, "未知", selected.contains("\"UNKNOWN\"")); unknownGender.setId(R.id.rule_gender_unknown);
-        if (genderControlsAvailable()) {
-            margin(form, genderFields, 16, 0);
-            if (host == HostApp.XIAOHONGSHU)
-                margin(genderFields, text("按作者资料中的性别匹配；资料加载失败或未填写时按未知处理。", 14, R.color.muted, false), 8, 0);
-        }
+        if (genderControlsAvailable()) margin(form, genderFields, 16, 0);
         if (restored != null) {
             name.setText(restored.getString("name")); locations.setText(restored.getString("locations")); words.setText(restored.getString("words"));
             unknown.setChecked(restored.getBoolean("unknown")); male.setChecked(restored.getBoolean("male"));
@@ -473,7 +449,7 @@ public final class MainActivity extends Activity {
         menu.getMenu().add("高级配置").setOnMenuItemClickListener(item -> { editJson(); return true; });
         menu.getMenu().add("使用说明").setOnMenuItemClickListener(item -> {
             LinearLayout help = dialogForm();
-            TextView body = text("每个应用分别保存开关、模式和规则。切换应用保留本次未保存的编辑，强制停止模块后恢复上次保存的配置。\n\n黑名单隐藏命中评论，白名单只显示命中评论。同一规则内的条件需同时满足；多条规则命中任意一条即可。\n\n仅过滤主评论。修改后点击保存规则，再刷新对应应用评论区。首次启用需在 LSPosed 勾选对应应用并重启该应用。\n\n小红书原生评论不提供性别；开启性别过滤后，需要额外加载作者资料。加载期间先保留评论，失败或未填写按未知处理。关闭后，已有性别条件暂停，其余条件继续生效。\n\n模块 " + BuildConfig.VERSION_NAME + " · " + host.displayName + " (适配基准 " + host.versionName + ")", 15, R.color.muted, false);
+            TextView body = text("每个应用分别保存开关、模式和规则。切换应用保留本次未保存的编辑，强制停止模块后恢复上次保存的配置。\n\n黑名单隐藏命中评论，白名单只显示命中评论。同一规则内的条件需同时满足；多条规则命中任意一条即可。\n\n仅过滤主评论。修改后点击保存规则，再刷新对应应用评论区。首次启用需在 LSPosed 勾选对应应用并重启该应用。\n\n小红书仅支持属地和关键词过滤，不再加载作者资料。旧规则的性别条件保留但暂停，混合规则继续按其余条件执行，纯性别规则暂停。其他应用的性别过滤保持可用。\n\n模块 " + BuildConfig.VERSION_NAME + " · " + host.displayName + " (适配基准 " + host.versionName + ")", 15, R.color.muted, false);
             body.setLineSpacing(dp(4), 1); help.addView(body);
             AlertDialog dialog = dialogBuilder("使用说明").setView(dialogScroll(help)).setPositiveButton("知道了", null).create();
             showDialog(dialog); return true;
@@ -499,6 +475,7 @@ public final class MainActivity extends Activity {
 
     private void change(String key, Object value) { JSONObject candidate = copy(); put(candidate, key, value); apply(candidate, false); }
     private void apply(JSONObject candidate, boolean animate) {
+        if (host == HostApp.XIAOHONGSHU) candidate.remove("resolveProfileGender");
         String json = candidate.toString(); RuleEngine.compileJson(json); undoJson = null;
         visibleJson = json; settings = candidate; syncScreen(animate);
     }
@@ -594,7 +571,7 @@ public final class MainActivity extends Activity {
         for (int i = 0; i < array.length(); i++) { if (i > 0) result.append('\n'); result.append(array.optString(i)); } return result.toString();
     }
     private boolean genderControlsAvailable() {
-        return host != HostApp.XIAOHONGSHU || settings.optBoolean("resolveProfileGender", false);
+        return host != HostApp.XIAOHONGSHU;
     }
 
     private static boolean hasConditions(JSONObject rule, boolean includeGender) {
@@ -616,7 +593,7 @@ public final class MainActivity extends Activity {
             genders.add("M".equals(sex.optString(i)) ? "男" : "F".equals(sex.optString(i)) ? "女" : "未知");
         if (!genders.isEmpty()) {
             if (genderControlsAvailable()) descriptions.add("性别 · " + TextUtils.join("、", genders));
-            else descriptions.add(descriptions.isEmpty() ? "规则已暂停 · 性别过滤未开启" : "性别条件已暂停");
+            else descriptions.add(descriptions.isEmpty() ? "规则已暂停 · 小红书不支持性别过滤" : "性别条件已暂停");
         }
         return TextUtils.join("\n", descriptions);
     }

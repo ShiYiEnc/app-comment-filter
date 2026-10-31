@@ -11,12 +11,10 @@ public final class XiaohongshuCommentFilterTest {
     public interface Root extends Row {}
     public static final class Info {
         String id, content, ipLocation, rootCommentId;
-        Author user;
         Info(String id, String text, String region, String root) {
             this.id = id; content = text; ipLocation = region; rootCommentId = root;
         }
     }
-    public static final class Author { String userid; public Author(String userid) { this.userid = userid; } }
     public static final class Main implements Root {
         final Info info;
         Main(String id, String text) { info = new Info(id, text, "广东", null); }
@@ -49,15 +47,29 @@ public final class XiaohongshuCommentFilterTest {
         List<?> input = Arrays.asList(child, broken, new Object());
         assertSame(input, filter().filter(input, rules("\"keywords\":[\"spam\"]")));
     }
-    @Test public void onlyUnknownGenderCanMatchAbsentGenderField() throws Exception {
+    @Test public void allLegacyGenderOnlyRulesArePaused() throws Exception {
         List<?> input = List.of(new Main("1", "hello"));
         assertSame(input, filter().filter(input, rules("\"genders\":[\"F\"]")));
-        assertTrue(filter().filter(input, rules("\"genders\":[\"UNKNOWN\"]")).isEmpty());
+        assertSame(input, filter().filter(input, rules("\"genders\":[\"UNKNOWN\"]")));
     }
     @Test public void honorsLocationAndDisabledState() throws Exception {
         List<?> input = List.of(new Main("1", "hello"));
         assertTrue(filter().filter(input, rules("\"locations\":[\"广东\"]")).isEmpty());
         assertSame(input, filter().filter(input, RuleEngine.compileJson(RuleEngine.defaultJson())));
+    }
+    @Test public void legacyGenderInMixedRulesDoesNotDisableRemainingConditions() throws Exception {
+        Main hidden = new Main("1", "spam"), kept = new Main("2", "hello");
+        List<?> input = List.of(hidden, kept);
+        assertEquals(List.of(kept), filter().filter(input,
+                rules("\"genders\":[\"F\"],\"keywords\":[\"spam\"]")));
+    }
+    @Test public void genderOnlyWhitelistKeepsEverythingAndMixedWhitelistUsesKeywords() throws Exception {
+        Main kept = new Main("1", "hello"), hidden = new Main("2", "spam");
+        List<?> input = List.of(kept, hidden);
+        String prefix = "{\"schemaVersion\":1,\"enabled\":true,\"mode\":\"WHITELIST_ONLY\",\"whitelist\":[{\"id\":\"r\",\"genders\":[\"UNKNOWN\"]";
+        assertSame(input, filter().filter(input, RuleEngine.compileJson(prefix + "}]}")));
+        assertEquals(List.of(kept), filter().filter(input,
+                RuleEngine.compileJson(prefix + ",\"keywords\":[\"hello\"]}]}")));
     }
     @Test public void unreadableRootIsPreservedInWhitelistMode() throws Exception {
         Root broken = () -> { throw new IllegalStateException("changed"); };

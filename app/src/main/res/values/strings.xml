@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="runtime_status_label">运行状态 · %1$s  ›</string>
-    <string name="module_description">按属地、关键词、性别过滤快手、哔哩哔哩、哔哩哔哩 HD、小红书、抖音主评论，每个应用独立配置</string>
+    <string name="module_description">多应用主评论过滤与独立配置；小红书支持属地和关键词，其余应用支持属地、关键词和性别</string>
     <string name="rule_heading">%1$s规则 · %2$d</string>
     <string name="app_selector_label">%1$s  ▾</string>
 </resources>

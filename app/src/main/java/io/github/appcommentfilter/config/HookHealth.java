@@ -5,10 +5,10 @@ public final class HookHealth {
     public static final class Snapshot {
         public String session = "", versionName = "", stage = "STARTING", moduleVersion = "";
         public long versionCode, startedAt, updatedAt, lastCommentAt, read, hidden;
-        public String installError = "", runtimeError = "", configError = "", profileError = "", paginationError = "";
+        public String installError = "", runtimeError = "", configError = "", paginationError = "";
         public boolean ready() { return "READY".equals(stage); }
         public boolean hasIssue() {
-            return !(installError + runtimeError + configError + profileError + paginationError).isEmpty();
+            return !(installError + runtimeError + configError + paginationError).isEmpty();
         }
     }
 
@@ -34,7 +34,6 @@ public final class HookHealth {
         String previous;
         switch (feature) {
             case "config" -> { previous = state.configError; state.configError = error; }
-            case "profile" -> { previous = state.profileError; state.profileError = error; }
             case "pagination" -> { previous = state.paginationError; state.paginationError = error; }
             default -> { previous = state.runtimeError; state.runtimeError = error; }
         }
@@ -47,7 +46,7 @@ public final class HookHealth {
         copy.startedAt = state.startedAt; copy.updatedAt = now; copy.lastCommentAt = state.lastCommentAt;
         copy.read = state.read; copy.hidden = state.hidden;
         copy.installError = state.installError; copy.runtimeError = state.runtimeError;
-        copy.configError = state.configError; copy.profileError = state.profileError; copy.paginationError = state.paginationError;
+        copy.configError = state.configError; copy.paginationError = state.paginationError;
         return copy;
     }
 }

@@ -5,6 +5,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
+import io.github.appcommentfilter.core.RuleEngine;
 
 /** Preserve the server response and every paging field when passing a filtered view to observers. */
 final class DouyinResponseCopy {
@@ -38,5 +39,16 @@ final class DouyinResponseCopy {
         for (Field field : fields) field.set(copy, field.get(response));
         items.set(copy, replacement);
         return copy;
+    }
+
+    /** Replace only the response argument, keeping request enums and the original response intact. */
+    void filterArgument(Object[] arguments, int responseIndex, DouyinCommentReader reader, RuleEngine rules)
+            throws ReflectiveOperationException {
+        if (!rules.enabled()) return;
+        Object response = arguments[responseIndex];
+        List<?> original = items(response);
+        if (original == null) return;
+        List<?> filtered = reader.filter(original, rules);
+        if (filtered != original) arguments[responseIndex] = withItems(response, filtered);
     }
 }

@@ -1,0 +1,96 @@
+{
+  "date": "2026-10-31",
+  "package": "io.github.appcommentfilter",
+  "versionName": "0.2.6",
+  "versionCode": 14,
+  "apk": "D:\\Projects\\Git_project\\app-comment-filter\\releases\\comment-filter-0.2.6-debug.apk",
+  "sizeBytes": 535005,
+  "sha256": "a4759711ea2224ec79241521489b1214375880579eb13637a51d1c02e0760512",
+  "signature": {
+    "verified": true,
+    "certificateSha256": "4e8e88c4b8ccdb16d8cd8027933dc0ff497de9bfecc15fed03e270ed61f465df"
+  },
+  "build": "assembleDebug, assembleDebugAndroidTest, app:testDebugUnitTest, core:test, lintDebug passed",
+  "unitTests": {
+    "app": {
+      "tests": 93,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "core": {
+      "tests": 62,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "lint": [
+    {
+      "id": "OldTargetApi",
+      "severity": "Warning"
+    },
+    {
+      "id": "AndroidGradlePluginVersion",
+      "severity": "Warning"
+    }
+  ],
+  "xhsRemovedClassesAbsentFromDex": true,
+  "emulator": {
+    "api": 37,
+    "xhsNoGenderUi": {
+      "real_host_hooks_tested": false,
+      "legacy_true_flag_read_without_rule_write_and_paused_gender_labels": true,
+      "advanced_json_hides_removed_root_flag_without_overwriting_legacy_file": true,
+      "editing_preserves_legacy_arrays_and_only_explicit_save_removes_root_flag": true,
+      "save_restart_and_gender_only_whitelist_pause": true,
+      "other_apps_keep_gender_and_xhs_unsaved_mode_is_isolated": true,
+      "keyboard_visible_action_bounds": {
+        "keyboard_top": 1848,
+        "cancel_bounds": [
+          710,
+          1586,
+          926,
+          1730
+        ],
+        "complete_bounds": [
+          962,
+          1586,
+          1178,
+          1730
+        ]
+      },
+      "keyboard_dark_large_font_narrow_and_json_verified": true,
+      "device_api": 37,
+      "original_preferences_restored": true
+    },
+    "runtimeStatusSmoke": {
+      "host_hooks_tested": false,
+      "binder_tests": "INSTRUMENTATION_RESULT: result=PASS: startup, readiness, notice dedup, categories, host isolation, stale sessions, invalid input, rule immutability, version scope\r\nINSTRUMENTATION_CODE: -1\r\n",
+      "waiting": true,
+      "active": true,
+      "partial": true,
+      "failed": true,
+      "old": true,
+      "unrelated_uid_rejected": true,
+      "api": 37,
+      "original_preferences_restored": true
+    },
+    "installedApkSha256MatchesFinal": true
+  },
+  "realDevice": {
+    "douyinEarlierFixBuild": {
+      "version": "40.9.0 / 400901",
+      "kmpHookObserved": true,
+      "read": 40,
+      "hidden": 38,
+      "runtimeInstallConfigErrors": false,
+      "visibleWhitelistFilteringObserved": true,
+      "nativeLoadMoreVerified": false
+    },
+    "finalRemovalApkInstalled": false,
+    "reason": "No physical ADB device connected during final build validation. Earlier diagnostic 0.2.6 remains on the device; install this final APK and restart scoped hosts.",
+    "xhsFinalRemovalHostVerified": false
+  },
+  "privacy": "Raw real-device logs, screenshots and original preferences remain ignored under .tools; only controlled emulator fixtures and sanitized findings are committed."
+}

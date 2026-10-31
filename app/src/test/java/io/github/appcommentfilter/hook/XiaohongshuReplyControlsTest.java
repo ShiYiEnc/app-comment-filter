@@ -29,7 +29,7 @@ public final class XiaohongshuReplyControlsTest {
 
     private XiaohongshuCommentFilter filter() throws Exception { return filter(FilterDiagnostics.NONE); }
     private XiaohongshuCommentFilter filter(FilterDiagnostics diagnostics) throws Exception {
-        return new XiaohongshuCommentFilter(Root.class, Row.class, Child.class, Info.class, null, diagnostics,
+        return new XiaohongshuCommentFilter(Root.class, Row.class, Child.class, Info.class, diagnostics,
                 new XiaohongshuRowRelations(Row.class, ReplyControl.class, Container.class, Downvote.class));
     }
     private RuleEngine rules() {

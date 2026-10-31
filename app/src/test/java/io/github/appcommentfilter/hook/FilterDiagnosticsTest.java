@@ -41,7 +41,7 @@ public class FilterDiagnosticsTest {
         Capture capture = new Capture();
         XiaohongshuCommentFilter filter = new XiaohongshuCommentFilter(XiaohongshuCommentFilterTest.Root.class,
                 XiaohongshuCommentFilterTest.Row.class, XiaohongshuCommentFilterTest.Child.class,
-                XiaohongshuCommentFilterTest.Info.class, null, capture);
+                XiaohongshuCommentFilterTest.Info.class, capture);
         XiaohongshuCommentFilterTest.Root broken = () -> { throw new LinkageError(); };
         List<?> result = filter.filter(Arrays.asList(broken, new XiaohongshuCommentFilterTest.Main("1", "spam")), rules());
         assertEquals(List.of(broken), result); assertEquals(1, capture.read); assertEquals(1, capture.hidden);

@@ -25,7 +25,7 @@ public class HookHealthTest {
         HookHealth health = health();
         assertTrue(health.issue("config", "SecurityException"));
         assertFalse(health.issue("config", "SecurityException"));
-        health.issue("profile", "NoSuchMethodException");
+        health.issue("pagination", "NoSuchMethodException");
         health.issue("config", "");
         assertEquals("", health.snapshot(1200).configError);
         assertTrue(health.snapshot(1200).hasIssue());

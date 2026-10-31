@@ -14,38 +14,24 @@ import java.util.Set;
 
 /** Projection of verified comment row interfaces; original rows/models remain unchanged. */
 public final class XiaohongshuCommentFilter {
-    public interface GenderLookup { GenderState lookup(String userId); }
-    public static final class GenderState {
-        public final boolean pending;
-        public final Gender gender;
-        public GenderState(boolean pending, Gender gender) {
-            this.pending = pending;
-            this.gender = gender == null ? Gender.UNKNOWN : gender;
-        }
-    }
     private final Class<?> rootRow, commentRow, childRow;
     private final Method model;
-    private final Field id, content, location, rootId, childRootId, author, authorId;
-    private final GenderLookup genders;
+    private final Field id, content, location, rootId, childRootId;
     private final FilterDiagnostics diagnostics;
     private final XiaohongshuRowRelations relations;
 
     public XiaohongshuCommentFilter(Class<?> rootRow, Class<?> commentRow, Class<?> childRow,
                                     Class<?> info) throws ReflectiveOperationException {
-        this(rootRow, commentRow, childRow, info, null);
+        this(rootRow, commentRow, childRow, info, FilterDiagnostics.NONE);
     }
 
     public XiaohongshuCommentFilter(Class<?> rootRow, Class<?> commentRow, Class<?> childRow,
-                                    Class<?> info, GenderLookup genders) throws ReflectiveOperationException {
-        this(rootRow, commentRow, childRow, info, genders, FilterDiagnostics.NONE);
-    }
-    public XiaohongshuCommentFilter(Class<?> rootRow, Class<?> commentRow, Class<?> childRow,
-                                    Class<?> info, GenderLookup genders, FilterDiagnostics diagnostics) throws ReflectiveOperationException {
-        this(rootRow, commentRow, childRow, info, genders, diagnostics, null);
+                                    Class<?> info, FilterDiagnostics diagnostics) throws ReflectiveOperationException {
+        this(rootRow, commentRow, childRow, info, diagnostics, null);
     }
 
     XiaohongshuCommentFilter(Class<?> rootRow, Class<?> commentRow, Class<?> childRow,
-                            Class<?> info, GenderLookup genders, FilterDiagnostics diagnostics,
+                            Class<?> info, FilterDiagnostics diagnostics,
                             XiaohongshuRowRelations relations) throws ReflectiveOperationException {
         this.diagnostics = diagnostics;
         this.relations = relations;
@@ -60,11 +46,7 @@ public final class XiaohongshuCommentFilter {
         location = stringField(info, "ipLocation");
         rootId = stringField(info, "rootCommentId");
         childRootId = stringField(childRow, "e");
-        this.genders = genders;
-        if (genders != null) {
-            author = info.getDeclaredField("user"); author.setAccessible(true);
-            authorId = stringField(author.getType(), "userid");
-        } else { author = null; authorId = null; }
+
     }
 
     private static Field stringField(Class<?> type, String name) throws ReflectiveOperationException {
@@ -86,22 +68,8 @@ public final class XiaohongshuCommentFilter {
                 Object info = model.invoke(comment);
                 if (info == null) continue;
                 Comment snapshot = new Comment((String) content.get(info), (String) location.get(info), Gender.UNKNOWN, false);
-                io.github.appcommentfilter.core.Decision decision;
-                if (!rules.resolveProfileGender()) {
-                    decision = rules.evaluate(snapshot, false);
-                } else if (!rules.usesGenderRules() || genders == null) {
-                    decision = rules.evaluate(snapshot);
-                } else {
-                    decision = rules.evaluatePendingGender(snapshot);
-                    // Independent keyword/location blacklist matches need no profile lookup.
-                    if (!decision.hidden()) {
-                        Object user = author.get(info);
-                        String userId = user == null ? null : (String) authorId.get(user);
-                        GenderState state = genders.lookup(userId);
-                        if (state == null) throw new IllegalStateException("Missing profile result");
-                        if (!state.pending) decision = rules.evaluate(new Comment(snapshot.text(), snapshot.location(), state.gender, false));
-                    }
-                }
+                // XHS exposes no comment gender. Legacy gender conditions stay stored but are paused.
+                io.github.appcommentfilter.core.Decision decision = rules.evaluate(snapshot, false);
                 read++;
                 if (decision.hidden()) {
                     hidden.add(row);

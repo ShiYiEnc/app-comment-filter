@@ -1,0 +1,12 @@
+{
+  "host_hooks_tested": false,
+  "binder_tests": "INSTRUMENTATION_RESULT: result=PASS: startup, readiness, notice dedup, categories, host isolation, stale sessions, invalid input, rule immutability, version scope\r\nINSTRUMENTATION_CODE: -1\r\n",
+  "waiting": true,
+  "active": true,
+  "partial": true,
+  "failed": true,
+  "old": true,
+  "unrelated_uid_rejected": true,
+  "api": 37,
+  "original_preferences_restored": true
+}

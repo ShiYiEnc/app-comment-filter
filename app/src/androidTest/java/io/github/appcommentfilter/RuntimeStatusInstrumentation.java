@@ -44,7 +44,7 @@ public final class RuntimeStatusInstrumentation extends Instrumentation {
                 if (!"starting".equals(scenario)) health.installed();
                 if ("active".equals(scenario) || "partial".equals(scenario)) health.batch(25, 3, null, now);
                 if ("failed".equals(scenario)) health.installFailed("NoSuchMethodException");
-                if ("partial".equals(scenario)) health.issue("profile", "ProfileRequestFailed");
+                if ("partial".equals(scenario)) health.issue("runtime", "CommentShapeError");
                 HookHealth.Snapshot state = health.snapshot(now);
                 if ("old".equals(scenario)) state.versionCode--;
                 report(HostApp.XIAOHONGSHU, state);
@@ -55,7 +55,7 @@ public final class RuntimeStatusInstrumentation extends Instrumentation {
                 check(!report(HostApp.XIAOHONGSHU, health.snapshot(now)).getBoolean("warn"), "startup cannot warn");
                 health.installed(); report(HostApp.XIAOHONGSHU, health.snapshot(now + 1));
                 check(RuntimeStatusStore.load(getTargetContext(), HostApp.XIAOHONGSHU).lastCommentAt == 0, "ready is not read");
-                health.issue("profile", "NoSuchMethodException");
+                health.issue("runtime", "NoSuchMethodException");
                 check(report(HostApp.XIAOHONGSHU, health.snapshot(now + 2)).getBoolean("warn"), "first issue must warn");
                 check(!report(HostApp.XIAOHONGSHU, health.snapshot(now + 3)).getBoolean("warn"), "repeat issue must not warn");
                 HookHealth restart = new HookHealth("two", "99.0.0", 990000, BuildConfig.VERSION_NAME, now + 4);

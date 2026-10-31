@@ -12,6 +12,36 @@ import java.util.Set;
 final class DouyinConsumerBindings {
     private DouyinConsumerBindings() { }
 
+    static final class KmpConsumer {
+        final Method method;
+        final int responseArgument = 1;
+        KmpConsumer(Method method) { this.method = method; }
+    }
+
+    /** KMP has its own data source, separate from CommentListPageNetRequest consumers. */
+    static KmpConsumer kmp(Class<?> viewModel, Class<?> response) throws NoSuchMethodException {
+        Set<Class<?>> sources = new LinkedHashSet<>();
+        for (Method getter : viewModel.getDeclaredMethods()) {
+            if (Modifier.isStatic(getter.getModifiers()) || getter.isBridge() || getter.getParameterCount() != 0) continue;
+            Class<?> type = getter.getReturnType();
+            if (type.isPrimitive() || type.isArray() || type.getName().startsWith("java.")
+                    || type.getName().startsWith("android.")) continue;
+            sources.add(type);
+        }
+        Method result = null;
+        for (Class<?> source : sources) for (Method method : source.getDeclaredMethods()) {
+            int modifiers = method.getModifiers();
+            if (Modifier.isStatic(modifiers) || Modifier.isAbstract(modifiers) || method.isBridge()
+                    || method.getReturnType() != void.class) continue;
+            Class<?>[] parameters = method.getParameterTypes();
+            if (parameters.length != 2 || !parameters[0].isEnum() || parameters[1] != response) continue;
+            if (result != null && !result.equals(method)) throw new NoSuchMethodException("Ambiguous KMP main response consumer");
+            result = method;
+        }
+        if (result == null) throw new NoSuchMethodException("No KMP main response consumer");
+        return new KmpConsumer(result);
+    }
+
     static List<Method> modern(Class<?> helper, Class<?> request, Class<?> response) throws NoSuchMethodException {
         Set<Class<?>> candidates = new LinkedHashSet<>();
         for (Method method : helper.getDeclaredMethods()) {

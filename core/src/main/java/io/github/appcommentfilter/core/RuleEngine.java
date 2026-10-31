@@ -55,7 +55,8 @@ public final class RuleEngine {
 
     public boolean enabled() { return enabled; }
 
-    /** Opt-in used by hosts that must load separate user profiles for gender. */
+    /** Legacy import field; profile lookup has been removed from all host adapters. */
+    @Deprecated
     public boolean resolveProfileGender() { return resolveProfileGender; }
 
     /** Whether the enabled mode contains a gender condition worth resolving. */

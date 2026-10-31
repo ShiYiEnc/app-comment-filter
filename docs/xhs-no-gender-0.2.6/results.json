@@ -1,0 +1,27 @@
+{
+  "serial": "emulator-5580",
+  "real_host_hooks_tested": false,
+  "legacy_true_flag_read_without_rule_write_and_paused_gender_labels": true,
+  "advanced_json_hides_removed_root_flag_without_overwriting_legacy_file": true,
+  "editing_preserves_legacy_arrays_and_only_explicit_save_removes_root_flag": true,
+  "save_restart_and_gender_only_whitelist_pause": true,
+  "other_apps_keep_gender_and_xhs_unsaved_mode_is_isolated": true,
+  "keyboard_visible_action_bounds": {
+    "keyboard_top": 1848,
+    "cancel_bounds": [
+      710,
+      1586,
+      926,
+      1730
+    ],
+    "complete_bounds": [
+      962,
+      1586,
+      1178,
+      1730
+    ]
+  },
+  "keyboard_dark_large_font_narrow_and_json_verified": true,
+  "device_api": 37,
+  "original_preferences_restored": true
+}

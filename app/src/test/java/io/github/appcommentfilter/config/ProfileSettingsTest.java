@@ -8,6 +8,29 @@ import static org.junit.Assert.*;
 
 /** Tests the same persistence/migration policy used by the SharedPreferences adapter. */
 public final class ProfileSettingsTest {
+    @Test public void xhsLegacyProfileSwitchIsRemovedWithoutWritingOrDeletingRuleConditions() {
+        MemoryBackend backend = new MemoryBackend();
+        String legacy = "{\"schemaVersion\":1,\"enabled\":true,\"resolveProfileGender\":true,\"blacklist\":[{\"id\":\"old\",\"keywords\":[\"word\"],\"genders\":[\"F\"]}]}";
+        String file = "rules." + HostApp.XIAOHONGSHU.packageName;
+        backend.json.put(file, legacy); backend.revisions.put(file, 4L);
+        ProfileSettings.Snapshot loaded = new ProfileSettings(backend).read(HostApp.XIAOHONGSHU);
+        com.google.gson.JsonObject normalized = com.google.gson.JsonParser.parseString(loaded.json).getAsJsonObject();
+        assertFalse(normalized.has("resolveProfileGender"));
+        assertTrue(normalized.getAsJsonArray("blacklist").get(0).getAsJsonObject().has("genders"));
+        assertTrue(normalized.getAsJsonArray("blacklist").get(0).getAsJsonObject().has("keywords"));
+        assertEquals(legacy, backend.json.get(file)); assertEquals(4, loaded.revision); assertEquals(0, backend.writes);
+    }
+
+    @Test public void xhsSaveStripsObsoleteSwitchWhileOtherHostsKeepTheirExactJson() {
+        MemoryBackend backend = new MemoryBackend(); ProfileSettings settings = new ProfileSettings(backend);
+        String legacy = "{\"schemaVersion\":1,\"enabled\":true,\"resolveProfileGender\":true,\"whitelist\":[{\"id\":\"old\",\"genders\":[\"M\"]}]}";
+        settings.save(HostApp.XIAOHONGSHU, legacy);
+        String persisted = backend.json.get("rules." + HostApp.XIAOHONGSHU.packageName);
+        assertFalse(persisted.contains("resolveProfileGender")); assertTrue(persisted.contains("genders"));
+        settings.save(HostApp.BILIBILI, legacy);
+        assertEquals(legacy, backend.json.get("rules." + HostApp.BILIBILI.packageName));
+        assertEquals(1, settings.read(HostApp.XIAOHONGSHU).revision);
+    }
     private static final class MemoryBackend implements ProfileSettings.Backend {
         final Map<String, String> json = new HashMap<>();
         final Map<String, Long> revisions = new HashMap<>();

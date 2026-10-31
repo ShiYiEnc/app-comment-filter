@@ -1,6 +1,8 @@
 package io.github.appcommentfilter.config;
 
 import io.github.appcommentfilter.core.RuleEngine;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 /** Platform-independent profile routing and legacy migration policy. */
 final class ProfileSettings {
@@ -42,13 +44,22 @@ final class ProfileSettings {
             json = backend.readJson(file);
         }
         return json == null ? new Snapshot(RuleEngine.defaultJson(), 0)
-                : new Snapshot(json, backend.readRevision(file));
+                : new Snapshot(normalize(app, json), backend.readRevision(file));
+    }
+
+    /** Read-time compatibility never rewrites rules or removes saved rule conditions. */
+    private static String normalize(HostApp app, String json) {
+        if (app != HostApp.XIAOHONGSHU) return json;
+        JsonObject root = JsonParser.parseString(json).getAsJsonObject();
+        if (!root.has("resolveProfileGender")) return json;
+        root.remove("resolveProfileGender");
+        return root.toString();
     }
 
     void save(HostApp app, String json) {
         RuleEngine.compileJson(json);
         long next = read(app).revision + 1;
-        if (!backend.write(preferences(app), json, next)) {
+        if (!backend.write(preferences(app), normalize(app, json), next)) {
             throw new IllegalStateException("规则保存失败，原配置未替换");
         }
     }

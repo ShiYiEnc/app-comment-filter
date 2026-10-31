@@ -34,7 +34,7 @@ public final class RuntimeStatusStore {
                 || state.lastCommentAt < 0 || state.lastCommentAt > state.updatedAt) {
             throw new IllegalArgumentException("Invalid status fields");
         }
-        for (String error : new String[]{state.installError, state.runtimeError, state.configError, state.profileError, state.paginationError}) {
+        for (String error : new String[]{state.installError, state.runtimeError, state.configError, state.paginationError}) {
             if (error == null || !error.matches("[A-Za-z0-9_$]{0,100}")) throw new IllegalArgumentException("Invalid issue");
         }
         HookHealth.Snapshot previous = load(context, app);
@@ -49,8 +49,8 @@ public final class RuntimeStatusStore {
         Set<String> notices = scope.equals(preferences.getString(scopeKey, ""))
                 ? new HashSet<>(preferences.getStringSet(noticesKey, java.util.Collections.emptySet())) : new HashSet<>();
         boolean warn = false;
-        String[] categories = {"install", "runtime", "config", "profile", "pagination"};
-        String[] errors = {state.installError, state.runtimeError, state.configError, state.profileError, state.paginationError};
+        String[] categories = {"install", "runtime", "config", "pagination"};
+        String[] errors = {state.installError, state.runtimeError, state.configError, state.paginationError};
         for (int i = 0; i < categories.length; i++) if (!errors[i].isEmpty()) warn |= notices.add(categories[i]);
         edit.putString(scopeKey, scope).putStringSet(noticesKey, notices);
         if (!edit.commit()) throw new IllegalStateException("Status not saved");
