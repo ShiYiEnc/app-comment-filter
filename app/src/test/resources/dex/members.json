@@ -1,0 +1,116 @@
+[
+  {
+    "class": "Lfixture/dex/FingerprintFixture;",
+    "superclass": "Ljava/lang/Object;",
+    "interfaces": [],
+    "fields": [
+      {
+        "name": "staticValue",
+        "type": "I",
+        "flags": 9
+      },
+      {
+        "name": "group",
+        "type": "Ljava/lang/Object;",
+        "flags": 2
+      },
+      {
+        "name": "value",
+        "type": "I",
+        "flags": 1
+      }
+    ],
+    "methods": [
+      {
+        "name": "<init>",
+        "descriptor": "()V",
+        "flags": 65537,
+        "codeOffset": 1352
+      },
+      {
+        "name": "arrayPayload",
+        "descriptor": "()[I",
+        "flags": 9,
+        "codeOffset": 1160
+      },
+      {
+        "name": "consume",
+        "descriptor": "(I)V",
+        "flags": 10,
+        "codeOffset": 1376
+      },
+      {
+        "name": "consume",
+        "descriptor": "(Ljava/lang/String;)V",
+        "flags": 10,
+        "codeOffset": 1396
+      },
+      {
+        "name": "dynamic",
+        "descriptor": "(Ljava/lang/Object;)Ljava/util/function/Supplier;",
+        "flags": 9,
+        "codeOffset": 1296
+      },
+      {
+        "name": "lambda$dynamic$0",
+        "descriptor": "(Ljava/lang/Object;)Ljava/lang/Object;",
+        "flags": 4106,
+        "codeOffset": 1224
+      },
+      {
+        "name": "polymorphic",
+        "descriptor": "(Ljava/lang/invoke/MethodHandle;Ljava/lang/Object;)Ljava/lang/Object;",
+        "flags": 9,
+        "codeOffset": 1244
+      },
+      {
+        "name": "wideLiteral",
+        "descriptor": "()J",
+        "flags": 9,
+        "codeOffset": 1324
+      },
+      {
+        "name": "overloadCalls",
+        "descriptor": "()V",
+        "flags": 1,
+        "codeOffset": 1416
+      },
+      {
+        "name": "packed",
+        "descriptor": "(I)I",
+        "flags": 1,
+        "codeOffset": 948
+      },
+      {
+        "name": "parser",
+        "descriptor": "(Lfixture/dex/FingerprintFixture$Response;)V",
+        "flags": 1,
+        "codeOffset": 1452
+      },
+      {
+        "name": "readAndWriteStatic",
+        "descriptor": "(I)I",
+        "flags": 1,
+        "codeOffset": 1048
+      },
+      {
+        "name": "readGroup",
+        "descriptor": "()Ljava/lang/Object;",
+        "flags": 1,
+        "codeOffset": 1272
+      },
+      {
+        "name": "sparse",
+        "descriptor": "(I)I",
+        "flags": 1,
+        "codeOffset": 1080
+      },
+      {
+        "name": "writeGroup",
+        "descriptor": "(Ljava/lang/Object;)V",
+        "flags": 1,
+        "codeOffset": 1496
+      }
+    ]
+  }
+]

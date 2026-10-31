@@ -132,7 +132,7 @@ public final class MainActivity extends Activity {
             option.setOnClickListener(v -> { if (app != host) switchApp(app); dialog.dismiss(); });
             margin(options, option, 3, 3);
         }
-        dialog.setOnShowListener(d -> styleDialog(dialog)); dialog.show();
+        showDialog(dialog);
     }
 
     private void switchApp(HostApp next) {
@@ -361,7 +361,7 @@ public final class MainActivity extends Activity {
         LinearLayout content = dialogForm();
         TextView body = text(detail.toString(), 14, R.color.muted, false); body.setLineSpacing(dp(4), 1); content.addView(body);
         AlertDialog dialog = dialogBuilder("运行状态").setView(dialogScroll(content)).setPositiveButton("知道了", null).create();
-        dialog.setOnShowListener(d -> styleDialog(dialog)); dialog.show();
+        showDialog(dialog);
     }
     private void appendIssue(StringBuilder detail, String label, String error) {
         if (!error.isEmpty()) detail.append("\n\n").append(label).append("：").append(error);
@@ -441,7 +441,6 @@ public final class MainActivity extends Activity {
         activeEditor = dialog;
         dialog.setOnDismissListener(d -> { if (activeEditor == dialog) { editorSnapshot = null; activeEditor = null; } });
         dialog.setOnShowListener(d -> {
-            styleDialog(dialog);
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                 try {
                     JSONObject rule = new JSONObject(); String id = name.getText().toString().trim();
@@ -461,7 +460,7 @@ public final class MainActivity extends Activity {
                     scroll.post(() -> scroll.smoothScrollTo(0, form.getHeight()));
                 }
             });
-        }); dialog.show();
+        }); showDialog(dialog);
     }
 
     private void more(View anchor) {
@@ -477,7 +476,7 @@ public final class MainActivity extends Activity {
             TextView body = text("每个应用分别保存开关、模式和规则。切换应用保留本次未保存的编辑，强制停止模块后恢复上次保存的配置。\n\n黑名单隐藏命中评论，白名单只显示命中评论。同一规则内的条件需同时满足；多条规则命中任意一条即可。\n\n仅过滤主评论。修改后点击保存规则，再刷新对应应用评论区。首次启用需在 LSPosed 勾选对应应用并重启该应用。\n\n小红书原生评论不提供性别；开启性别过滤后，需要额外加载作者资料。加载期间先保留评论，失败或未填写按未知处理。关闭后，已有性别条件暂停，其余条件继续生效。\n\n模块 " + BuildConfig.VERSION_NAME + " · " + host.displayName + " (适配基准 " + host.versionName + ")", 15, R.color.muted, false);
             body.setLineSpacing(dp(4), 1); help.addView(body);
             AlertDialog dialog = dialogBuilder("使用说明").setView(dialogScroll(help)).setPositiveButton("知道了", null).create();
-            dialog.setOnShowListener(d -> styleDialog(dialog)); dialog.show(); return true;
+            showDialog(dialog); return true;
         }); menu.show();
     }
 
@@ -492,10 +491,10 @@ public final class MainActivity extends Activity {
         editorSnapshot = () -> { Bundle saved = new Bundle(); saved.putString("type", "json"); saved.putString("json", editor.getText().toString()); return saved; };
         activeEditor = dialog;
         dialog.setOnDismissListener(d -> { if (activeEditor == dialog) { editorSnapshot = null; activeEditor = null; } });
-        dialog.setOnShowListener(d -> { styleDialog(dialog); dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+        dialog.setOnShowListener(d -> { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             try { String json = editor.getText().toString(); RuleEngine.compileJson(json); apply(object(json), true); dialog.dismiss(); }
             catch (Exception e) { error.setText(e.getMessage()); }
-        }); }); dialog.show();
+        }); }); showDialog(dialog);
     }
 
     private void change(String key, Object value) { JSONObject candidate = copy(); put(candidate, key, value); apply(candidate, false); }
@@ -628,6 +627,7 @@ public final class MainActivity extends Activity {
 
     private AlertDialog.Builder dialogBuilder(String title) {
         LinearLayout heading = column(); heading.setPadding(dp(24), dp(22), dp(24), dp(12));
+        heading.setId(R.id.dialog_heading);
         TextView context = text("选择应用".equals(title) ? "各应用独立配置" : host.displayName, 13, R.color.muted, true);
         heading.addView(context);
         TextView name = text(title, 23, R.color.ink, true); name.setPadding(0, dp(4), 0, 0);
@@ -637,8 +637,24 @@ public final class MainActivity extends Activity {
 
     private ScrollView dialogScroll(View content) {
         ScrollView scroll = new ScrollView(this) {
+            private final android.graphics.Rect visibleBounds = new android.graphics.Rect();
             @Override protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
                 int max = Math.round(getResources().getDisplayMetrics().heightPixels * .62f);
+                android.graphics.Rect visible = visibleBounds;
+                getWindowVisibleDisplayFrame(visible);
+                if (visible.height() > 0) {
+                    // Floating AlertDialogs can receive an unconstrained custom-panel measure
+                    // even when WindowManager has shortened their frame for the IME. Size the
+                    // scrollable body to that usable frame, reserving the real title/actions.
+                    View root = getRootView();
+                    View heading = root.findViewById(R.id.dialog_heading);
+                    View action = root.findViewById(android.R.id.button1);
+                    if (action == null || action.getVisibility() == View.GONE) action = root.findViewById(android.R.id.button2);
+                    int chrome = heading == null ? 0 : heading.getMeasuredHeight();
+                    if (action != null && action.getParent() instanceof View row) chrome += row.getMeasuredHeight();
+                    max = Math.min(max, Math.round(visible.height() * .62f));
+                    max = Math.min(max, Math.max(0, visible.height() - chrome - dp(32)));
+                }
                 int mode = MeasureSpec.getMode(heightMeasureSpec), size = MeasureSpec.getSize(heightMeasureSpec);
                 if (mode != MeasureSpec.UNSPECIFIED) max = Math.min(max, size);
                 super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(max, MeasureSpec.AT_MOST));
@@ -646,6 +662,14 @@ public final class MainActivity extends Activity {
         };
         scroll.setClipToPadding(false); scroll.setFillViewport(false); scroll.addView(content);
         return scroll;
+    }
+
+    private void showDialog(AlertDialog dialog) {
+        // AlertDialog creates its title/content/buttons in onCreate. Prepare their final
+        // bounds before WindowManager adds the window; OnShow is already too late.
+        dialog.create();
+        styleDialog(dialog);
+        dialog.show();
     }
 
     private void styleDialog(AlertDialog dialog) {
@@ -657,6 +681,7 @@ public final class MainActivity extends Activity {
         window.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
         window.setDimAmount(.34f);
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        window.setWindowAnimations(R.style.FilterDialogAnimation);
         ViewGroup actionRow = null;
         for (int which : new int[]{AlertDialog.BUTTON_NEGATIVE, AlertDialog.BUTTON_POSITIVE}) {
             Button action = dialog.getButton(which);
@@ -683,10 +708,6 @@ public final class MainActivity extends Activity {
                 margins.topMargin = 0; margins.bottomMargin = 0;
             }
             if (current != null) action.setLayoutParams(current);
-        }
-        if (ValueAnimator.areAnimatorsEnabled()) {
-            View panel = window.getDecorView(); panel.setAlpha(.88f); panel.setTranslationY(dp(6));
-            panel.animate().alpha(1).translationY(0).setDuration(180).start();
         }
     }
 

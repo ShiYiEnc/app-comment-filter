@@ -28,7 +28,10 @@ public final class ModuleEntry implements IXposedHookLoadPackage {
                     ClassLoader loader = context.getClassLoader();
                     RemoteConfig config = new RemoteConfig(context, host, status);
                     switch (host) {
-                        case KUAISHOU -> new Kuaishou14920Adapter().install(loader, config, (Application) attach.thisObject, status);
+                        case KUAISHOU -> {
+                            new KuaishouAdapter().installAsync(loader, config, (Application) attach.thisObject, status);
+                            return;
+                        }
                         case BILIBILI -> new BilibiliAdapter(false).install(loader, config, status);
                         case BILIBILI_HD -> new BilibiliAdapter(true).install(loader, config, status);
                         case XIAOHONGSHU -> new XiaohongshuAdapter().install(loader, config, status);

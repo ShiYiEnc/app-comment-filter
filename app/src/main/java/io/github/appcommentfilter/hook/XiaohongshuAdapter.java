@@ -55,6 +55,9 @@ public final class XiaohongshuAdapter {
         Class<?> rootRow = Class.forName("uz7.d", false, loader);
         Class<?> commentRow = Class.forName("uz7.a", false, loader);
         Class<?> childRow = Class.forName("uz7.e", false, loader);
+        XiaohongshuRowRelations relations = new XiaohongshuRowRelations(commentRow,
+                Class.forName("nr7.c", false, loader), Class.forName("u47.c", false, loader),
+                Class.forName("u47.e", false, loader));
         try {
             genders = new XiaohongshuGenderResolver(loader, main, this::scheduleReapply);
             genders.setDiagnostics(success -> status.issue("profile", success ? null : new ProfileRequestFailed()));
@@ -69,13 +72,13 @@ public final class XiaohongshuAdapter {
             filter = new XiaohongshuCommentFilter(rootRow, commentRow, childRow, info, genders == null ? null : userId -> {
                         XiaohongshuGenderCache.Result result = genders.lookup(userId, !Boolean.TRUE.equals(cachedProfilesOnly.get()));
                         return new XiaohongshuCommentFilter.GenderState(result.pending, result.gender);
-                    }, status);
+                    }, status, relations);
         } catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
             if (genders == null) throw error;
             genders.close(); genders = null; profileFailure = error;
             // Author fields belong to the optional gender feature too. The second binding
             // still checks every mandatory text/location/projection field and may fail.
-            filter = new XiaohongshuCommentFilter(rootRow, commentRow, childRow, info, null, status);
+            filter = new XiaohongshuCommentFilter(rootRow, commentRow, childRow, info, null, status, relations);
         }
         projection = new XiaohongshuProjection(filter);
         List<XC_MethodHook.Unhook> installed = new ArrayList<>();

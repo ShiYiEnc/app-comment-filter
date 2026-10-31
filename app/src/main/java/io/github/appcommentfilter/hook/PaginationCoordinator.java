@@ -8,6 +8,7 @@ import android.os.Looper;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -20,7 +21,6 @@ import io.github.appcommentfilter.core.PaginationPolicy;
 public final class PaginationCoordinator implements Application.ActivityLifecycleCallbacks {
     static final int TARGET_MAIN_COMMENTS = 12;
     static final int MAX_AUTO_PAGES = 5;
-    private static final String BASE = "com.kwai.kmp.pagelist.KMPPageList";
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Map<Object, Session> sessions = new WeakHashMap<>();
     private final ThreadLocal<Boolean> dispatching = new ThreadLocal<>();
@@ -30,7 +30,7 @@ public final class PaginationCoordinator implements Application.ActivityLifecycl
     private final Application application;
     private final java.util.List<XC_MethodHook.Unhook> lifecycleHooks = new java.util.ArrayList<>();
     private final Field coreField;
-    private final Method isFirst, isLoading, hasMore, latest, cursor, roots, load, locked;
+    private final Method isFirst, isLoading, hasMore, latest, cursor, fullList, load, locked, completion, failure, cancel;
     private final Class<?> coreClass, completionClass;
     private final CommentFooterController footerController;
     private WeakReference<Activity> foreground = new WeakReference<>(null);
@@ -65,23 +65,15 @@ public final class PaginationCoordinator implements Application.ActivityLifecycl
         }
     }
 
-    public PaginationCoordinator(Application app, ClassLoader loader, Class<?> pageList,
-                                 RemoteConfig config, CommentListFilter filter, HookStatus status) throws ReflectiveOperationException {
+    public PaginationCoordinator(Application app, ClassLoader loader, KuaishouBindings binding, KuaishouBindings.Paging paging,
+                                 RemoteConfig config, CommentListFilter filter, HookStatus status) throws ReflectiveOperationException, IOException {
         this.config = config; this.filter = filter; this.status = status;
         this.application = app;
-        coreField = pageList.getDeclaredField("c1"); coreField.setAccessible(true);
-        coreClass = Class.forName(BASE, false, loader);
-        completionClass = Class.forName(BASE + "$c", false, loader);
-        isFirst = coreClass.getMethod("i"); isLoading = coreClass.getMethod("k");
-        hasMore = coreClass.getMethod("hasMore"); latest = coreClass.getMethod("j0");
-        cursor = Class.forName("w2b.q", false, loader).getMethod("getKPcursor");
-        roots = pageList.getMethod("r0"); load = pageList.getMethod("k"); locked = pageList.getMethod("h0");
-        // Validate every lifecycle symbol before registering anything.
-        coreClass.getDeclaredMethod("q", completionClass);
-        coreClass.getDeclaredMethod("p", Throwable.class);
-        coreClass.getDeclaredMethod("load"); coreClass.getDeclaredMethod("release");
-        coreClass.getDeclaredMethod("o"); coreClass.getDeclaredMethod("refresh");
-        footerController = new CommentFooterController(loader, pageList, () -> {
+        coreField = paging.coreField; coreClass = paging.base; completionClass = paging.completionType;
+        isFirst = paging.first; isLoading = paging.loading; hasMore = paging.hasMore; latest = paging.latest;
+        cursor = binding.cursor; fullList = binding.fullList; load = paging.load; locked = paging.locked;
+        completion = paging.completion; failure = paging.failure; cancel = paging.cancel;
+        footerController = new CommentFooterController(loader, binding.pageList, binding.apks, () -> {
             synchronized (sessions) {
                 if (active != null && active.pending == PaginationPolicy.Result.ASK_CONTINUE) {
                     offerContinuation(active, active.ticket);
@@ -92,7 +84,7 @@ public final class PaginationCoordinator implements Application.ActivityLifecycl
 
     public void install() throws ReflectiveOperationException {
         try {
-            lifecycleHooks.add(XposedBridge.hookMethod(coreClass.getDeclaredMethod("q", completionClass), new XC_MethodHook() {
+            lifecycleHooks.add(XposedBridge.hookMethod(completion, new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam param) {
                     if (!param.hasThrowable()) completed(param.thisObject);
                 }
@@ -116,14 +108,15 @@ public final class PaginationCoordinator implements Application.ActivityLifecycl
                     }
                 }
             }));
-            lifecycleHooks.add(XposedBridge.hookMethod(coreClass.getDeclaredMethod("p", Throwable.class), new XC_MethodHook() {
+            lifecycleHooks.add(XposedBridge.hookMethod(failure, new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam param) { close(param.thisObject); }
             }));
-            for (String stopMethod : new String[]{"release", "o", "refresh"}) {
-                lifecycleHooks.add(XposedBridge.hookMethod(coreClass.getDeclaredMethod(stopMethod), new XC_MethodHook() {
+            for (Method stopMethod : new Method[]{coreClass.getDeclaredMethod("release"), cancel, coreClass.getDeclaredMethod("refresh")}) {
+                lifecycleHooks.add(XposedBridge.hookMethod(stopMethod, new XC_MethodHook() {
                     @Override protected void beforeHookedMethod(MethodHookParam param) { close(param.thisObject); }
                 }));
             }
+            footerController.install();
             application.registerActivityLifecycleCallbacks(this);
         } catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
             uninstall(); throw error;
@@ -132,6 +125,7 @@ public final class PaginationCoordinator implements Application.ActivityLifecycl
 
     public void uninstall() {
         application.unregisterActivityLifecycleCallbacks(this);
+        footerController.uninstall();
         for (XC_MethodHook.Unhook hook : lifecycleHooks) {
             try { hook.unhook(); } catch (RuntimeException | LinkageError ignored) { }
         }
@@ -140,10 +134,12 @@ public final class PaginationCoordinator implements Application.ActivityLifecycl
 
     public Page beforeParse(Object owner, Object response, boolean filtered) throws ReflectiveOperationException {
         Object core = coreField.get(owner);
-        Page page = new Page(response, Boolean.TRUE.equals(isFirst.invoke(core)),
-                filter.mainCommentCount((List<?>) roots.invoke(owner)), filtered);
+        Object previous = latest.invoke(core);
+        int before = previous != null && fullList.getDeclaringClass().isInstance(previous)
+                ? filter.mainCommentCount((List<?>) fullList.invoke(previous)) : 0;
         synchronized (sessions) {
             Session session = sessions.get(core);
+            Page page = new Page(response, Boolean.TRUE.equals(isFirst.invoke(core)), before, filtered);
             if (session == null || session.closed) {
                 Activity activity = foreground.get();
                 int target = TARGET_MAIN_COMMENTS;
@@ -160,14 +156,16 @@ public final class PaginationCoordinator implements Application.ActivityLifecycl
             session.screen = new WeakReference<>(foreground.get());
             session.ticket++; session.page = page;
             session.pending = PaginationPolicy.Result.NONE;
+            return page;
         }
-        return page;
     }
 
     public void afterParse(Object owner, Page page, boolean failed) {
         try {
             if (failed) { close(coreField.get(owner)); return; }
-            page.total = filter.mainCommentCount((List<?>) roots.invoke(owner));
+            Object response = page.response.get();
+            if (response == null) { close(coreField.get(owner)); return; }
+            page.total = filter.mainCommentCount((List<?>) fullList.invoke(response));
             page.added = page.first ? page.total : Math.max(0, page.total - page.before);
         } catch (ReflectiveOperationException | RuntimeException e) { logFailure(e); }
     }

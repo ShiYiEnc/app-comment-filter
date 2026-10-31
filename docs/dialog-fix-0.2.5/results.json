@@ -1,0 +1,26 @@
+{
+  "off_hides_gender_and_edit_preserves_saved_conditions": true,
+  "on_shows_gender_manual_save_and_process_restore": true,
+  "gate_is_xhs_only_and_drafts_are_isolated": true,
+  "gender_only_whitelist_paused_hint_matches_runtime": true,
+  "keyboard_visible_action_bounds": {
+    "keyboard_top": 1848,
+    "cancel_bounds": [
+      710,
+      1585,
+      926,
+      1729
+    ],
+    "complete_bounds": [
+      962,
+      1585,
+      1178,
+      1729
+    ]
+  },
+  "software_keyboard_visible_and_actions_reachable": true,
+  "dialogs_keyboard_dark_largefont_narrow_reachable": true,
+  "device_api": 37,
+  "host_profile_requests_tested": false,
+  "original_preferences_restored": true
+}

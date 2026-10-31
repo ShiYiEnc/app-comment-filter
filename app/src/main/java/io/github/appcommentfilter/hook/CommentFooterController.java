@@ -9,6 +9,8 @@ import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import java.lang.ref.WeakReference;
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -20,6 +22,7 @@ import de.robv.android.xposed.XposedBridge;
 /** Uses the host's real comment fragment and existing footer group; no window or overlay. */
 final class CommentFooterController {
     private final Class<?> comments, wrapper;
+    private final Method listGetter;
     private final Method getView, getActivity, getParams, getPager, getResponse, getAdapter, computing;
     private final Method addFooter, removeFooter, containsFooter;
     private final Field photo, ownerPhoto, footerAdapter;
@@ -27,55 +30,88 @@ final class CommentFooterController {
     private final Map<Object, WeakReference<View>> lists = new WeakHashMap<>();
     private final Map<Footer, Boolean> footers = new WeakHashMap<>();
     private final Runnable onReady;
+    private final java.util.List<XC_MethodHook.Unhook> hooks = new ArrayList<>();
+    private final java.util.List<Method> stops = new ArrayList<>(), starts = new ArrayList<>();
+    private final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
 
-    CommentFooterController(ClassLoader loader, Class<?> pageList, Runnable onReady) throws ReflectiveOperationException {
+    /** Bind everything before installing any hooks; a footer failure is independently recoverable. */
+    CommentFooterController(ClassLoader loader, Class<?> pageList, File[] apks, Runnable onReady)
+            throws ReflectiveOperationException, IOException {
         this.onReady = onReady;
         comments = Class.forName("com.yxcorp.gifshow.comment.common.fragment.AbsCommentsFragment", false, loader);
         Class<?> base = Class.forName("com.yxcorp.gifshow.recycler.fragment.RecyclerFragment", false, loader);
-        wrapper = Class.forName("pcl.f", false, loader);
-        Method listGetter = base.getMethod("j0");
+        Class<?> adapterType = Class.forName("androidx.recyclerview.widget.RecyclerView$Adapter", false, loader);
+        wrapper = KuaishouFooterBindings.wrapper(base, adapterType, View.class);
+        listGetter = base.getMethod("j0");
         getAdapter = listGetter.getReturnType().getMethod("getAdapter");
         computing = listGetter.getReturnType().getMethod("isComputingLayout");
         getView = comments.getMethod("getView"); getActivity = comments.getMethod("getActivity");
-        getParams = comments.getMethod("Tq"); photo = getParams.getReturnType().getField("mQPhoto");
+        Class<?> params = Class.forName("com.yxcorp.gifshow.comment.common.model.CommentParams", false, loader);
+        getParams = KuaishouFooterBindings.noArgReturn(comments, params, "comment params getter");
+        photo = getParams.getReturnType().getField("mQPhoto");
         photoId = photo.getType().getMethod("getKId");
-        getPager = base.getMethod("n"); getResponse = getPager.getReturnType().getMethod("j0");
+        getPager = base.getMethod("n");
+        getResponse = KuaishouFooterBindings.noArgReturn(getPager.getReturnType(), Object.class, "pager latest response getter");
         ownerPhoto = pageList.getDeclaredField("b"); ownerPhoto.setAccessible(true);
         ownerPhotoId = ownerPhoto.getType().getMethod("getKId");
         footerAdapter = wrapper.getDeclaredField("h"); footerAdapter.setAccessible(true);
-        addFooter = wrapper.getMethod("Q1", View.class); removeFooter = wrapper.getMethod("E2", View.class);
+        String wrapperOwner = KuaishouFooterBindings.descriptor(wrapper);
+        KuaishouFooterBindings.AddFooter symbol = KuaishouFooterBindings.addFooter(KuaishouBindings.index(apks, wrapperOwner),
+                wrapperOwner, KuaishouFooterBindings.descriptor(View.class), KuaishouFooterBindings.descriptor(ViewGroup.LayoutParams.class));
+        Field group = wrapper.getDeclaredField(symbol.group);
+        if (!KuaishouFooterBindings.descriptor(group.getType()).equals(symbol.groupDescriptor)
+                || ownerPhotoId.getReturnType() != String.class || photoId.getReturnType() != String.class)
+            throw new NoSuchMethodException("Footer photo/group contract changed");
+        addFooter = wrapper.getMethod(symbol.method, View.class); removeFooter = wrapper.getMethod("E2", View.class);
         containsFooter = wrapper.getMethod("l2", View.class);
+        if (addFooter.getReturnType() != void.class) throw new NoSuchMethodException("Footer add contract changed");
+        for (String name : new String[]{"onPause", "onPageUnSelect", "onDestroyView"}) stops.add(base.getDeclaredMethod(name));
+        for (String name : new String[]{"onResume", "onPageSelect"}) starts.add(base.getDeclaredMethod(name));
+    }
 
-        XposedBridge.hookMethod(listGetter, new XC_MethodHook() {
-            @Override protected void afterHookedMethod(MethodHookParam param) {
-                if (!comments.isInstance(param.thisObject) || !(param.getResult() instanceof View)) return;
-                View list = (View) param.getResult();
-                synchronized (lists) {
-                    WeakReference<View> previous = lists.put(param.thisObject, new WeakReference<>(list));
-                    if (previous == null || previous.get() != list) list.post(onReady);
-                }
-            }
-        });
-        XposedBridge.hookMethod(base.getDeclaredMethod("mq"), new XC_MethodHook() {
-            @Override protected void afterHookedMethod(MethodHookParam param) {
-                if (comments.isInstance(param.thisObject)) new android.os.Handler(android.os.Looper.getMainLooper()).post(onReady);
-            }
-        });
-        for (String method : new String[]{"onPause", "onPageUnSelect", "onDestroyView"}) {
-            XposedBridge.hookMethod(base.getDeclaredMethod(method), new XC_MethodHook() {
-                @Override protected void beforeHookedMethod(MethodHookParam param) {
-                    if (comments.isInstance(param.thisObject)) unavailable(param.thisObject);
-                    if ("onDestroyView".equals(method)) synchronized (lists) { lists.remove(param.thisObject); }
-                }
-            });
-        }
-        for (String method : new String[]{"onResume", "onPageSelect"}) {
-            XposedBridge.hookMethod(base.getDeclaredMethod(method), new XC_MethodHook() {
+    void install() {
+        if (!hooks.isEmpty()) return;
+        try {
+            hooks.add(XposedBridge.hookMethod(listGetter, new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam param) {
-                    if (comments.isInstance(param.thisObject)) new android.os.Handler(android.os.Looper.getMainLooper()).post(onReady);
+                    if (!comments.isInstance(param.thisObject) || !(param.getResult() instanceof View)) return;
+                    View list = (View) param.getResult();
+                    synchronized (lists) {
+                        WeakReference<View> previous = lists.put(param.thisObject, new WeakReference<>(list));
+                        if (previous == null || previous.get() != list) list.post(onReady);
+                    }
                 }
-            });
+            }));
+            // mq changed return type in 14.9.30. The list getter and stable Fragment lifecycle
+            // already provide readiness; no layout-phase or version-specific mq hook is needed.
+            for (Method method : stops) {
+                hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() {
+                    @Override protected void beforeHookedMethod(MethodHookParam param) {
+                        if (comments.isInstance(param.thisObject)) unavailable(param.thisObject);
+                        if ("onDestroyView".equals(method.getName())) synchronized (lists) { lists.remove(param.thisObject); }
+                    }
+                }));
+            }
+            for (Method method : starts) {
+                hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() {
+                    @Override protected void afterHookedMethod(MethodHookParam param) {
+                        if (comments.isInstance(param.thisObject)) main.post(onReady);
+                    }
+                }));
+            }
+        } catch (RuntimeException | LinkageError failure) { uninstall(); throw failure; }
+    }
+
+    void uninstall() {
+        for (XC_MethodHook.Unhook hook : hooks) {
+            try { hook.unhook(); } catch (RuntimeException | LinkageError ignored) { }
         }
+        hooks.clear();
+        synchronized (lists) { lists.clear(); }
+        java.util.List<Footer> active;
+        synchronized (footers) { active = new ArrayList<>(footers.keySet()); }
+        Runnable cleanup = () -> { for (Footer footer : active) if (footer != null) footer.remove(); };
+        if (android.os.Looper.myLooper() == main.getLooper()) cleanup.run(); else main.post(cleanup);
     }
 
     Footer show(Activity activity, Object owner, Object response, Runnable action, Runnable hidden)
@@ -108,14 +144,16 @@ final class CommentFooterController {
         if (!wrapper.isInstance(adapter) || footerAdapter.get(adapter) != null) return null;
         if (Boolean.TRUE.equals(computing.invoke(listMatch))) return null;
         Footer footer = new Footer(match, listMatch, adapter, action, hidden);
-        footers.put(footer, true);
+        synchronized (footers) { footers.put(footer, true); }
         try { addFooter.invoke(adapter, footer.row); }
         catch (ReflectiveOperationException | RuntimeException e) { footer.remove(); throw e; }
         return footer;
     }
 
     private void unavailable(Object fragment) {
-        for (Footer footer : new ArrayList<>(footers.keySet())) {
+        java.util.List<Footer> active;
+        synchronized (footers) { active = new ArrayList<>(footers.keySet()); }
+        for (Footer footer : active) {
             if (footer != null && footer.fragment.get() == fragment) footer.hidden.run();
         }
     }
@@ -165,7 +203,7 @@ final class CommentFooterController {
             detached = true; action = null; button.setEnabled(false); button.setOnClickListener(null); row.setVisibility(View.GONE);
             View panel = root.get();
             if (panel != null && panel.getViewTreeObserver().isAlive()) panel.getViewTreeObserver().removeOnGlobalLayoutListener(visibility);
-            footers.remove(this);
+            synchronized (footers) { footers.remove(this); }
             removeFromAdapter(0);
         }
 

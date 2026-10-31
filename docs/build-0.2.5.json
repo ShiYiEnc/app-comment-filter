@@ -1,0 +1,85 @@
+{
+  "date": "2026-10-31",
+  "package": "io.github.appcommentfilter",
+  "versionName": "0.2.5",
+  "versionCode": 13,
+  "apk": "D:\\Projects\\Git_project\\app-comment-filter\\releases\\comment-filter-0.2.5-debug.apk",
+  "sizeBytes": 726441,
+  "sha256": "8442caf5fcf464dbf01101f2d09de87b24fc82451c95bf12dabf3bda37357841",
+  "signature": {
+    "verified": true,
+    "scheme": "v2",
+    "certificateSha256": "4e8e88c4b8ccdb16d8cd8027933dc0ff497de9bfecc15fed03e270ed61f465df"
+  },
+  "build": "assembleDebug, assembleDebugAndroidTest, app:testDebugUnitTest, core:test, lintDebug passed",
+  "unitTests": {
+    "app": {
+      "tests": 103,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "core": {
+      "tests": 62,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "lint": [
+    {
+      "id": "OldTargetApi",
+      "severity": "Warning"
+    },
+    {
+      "id": "AndroidGradlePluginVersion",
+      "severity": "Warning"
+    }
+  ],
+  "finalApkInstalledAndPackageManagerConfirmed": true,
+  "emulator": {
+    "api": 37,
+    "runtimeStatusSmoke": {
+      "host_hooks_tested": false,
+      "binder_tests": "INSTRUMENTATION_RESULT: result=PASS: startup, readiness, notice dedup, categories, host isolation, stale sessions, invalid input, rule immutability, version scope\r\nINSTRUMENTATION_CODE: -1\r\n",
+      "waiting": true,
+      "active": true,
+      "partial": true,
+      "failed": true,
+      "old": true,
+      "unrelated_uid_rejected": true,
+      "api": 37,
+      "original_preferences_restored": true
+    },
+    "dialogUiSmoke": {
+      "off_hides_gender_and_edit_preserves_saved_conditions": true,
+      "on_shows_gender_manual_save_and_process_restore": true,
+      "gate_is_xhs_only_and_drafts_are_isolated": true,
+      "gender_only_whitelist_paused_hint_matches_runtime": true,
+      "keyboard_visible_action_bounds": {
+        "keyboard_top": 1848,
+        "cancel_bounds": [
+          710,
+          1585,
+          926,
+          1729
+        ],
+        "complete_bounds": [
+          962,
+          1585,
+          1178,
+          1729
+        ]
+      },
+      "software_keyboard_visible_and_actions_reachable": true,
+      "dialogs_keyboard_dark_largefont_narrow_reachable": true,
+      "device_api": 37,
+      "host_profile_requests_tested": false,
+      "original_preferences_restored": true
+    },
+    "dialogUiArtifactNote": "Full UI and motion checks used a 0.2.4/code12 candidate containing final UI changes. The same code plus a Rect reuse in onMeasure is compiled in final 0.2.5.",
+    "kuaishouDeclarationBindings": "Both real APKs passed production binding + footer metadata checks with class initialization disabled; see ks-0.2.5/android-binding.json"
+  },
+  "realHostLsposedHooksTested": false,
+  "limitations": "No real host Application/Activity was started or method invoked by the declaration probe. New host compatibility and actual filtering/paging still require device LSPosed verification."
+}

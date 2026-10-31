@@ -36,7 +36,9 @@ def find(value, attr='resource-id', xml=None, required=True):
     return node
 
 def tap(value, attr='resource-id'):
-    n = find(value, attr); x,y,r,b = map(int,re.findall(r'\d+',n.get('bounds')))
+    n = find(value, attr, required=False)
+    if n is None: n = reveal(value, attr)
+    x,y,r,b = map(int,re.findall(r'\d+',n.get('bounds')))
     adb('shell','input','tap',str((x+r)//2),str((y+b)//2))
 
 def shot(name): (out/name).write_bytes(adb('exec-out','screencap','-p').stdout)
@@ -45,11 +47,16 @@ def dimensions():
     r = adb('shell','wm','size').stdout.decode()
     return tuple(map(int,re.findall(r'(\d+)x(\d+)',r)[-1]))
 
-def reveal(value):
-    for _ in range(5):
-        n = find(value, required=False)
-        if n is not None: return n
-        w,h = dimensions(); adb('shell','input','swipe',str(w//2),str(int(h*.68)),str(w//2),str(int(h*.36)),'220')
+def reveal(value, attr='resource-id'):
+    # Status cards and accessibility fonts change how much of the rule list fits.
+    # Locate real scrollable content instead of assuming a rule/control is on page one.
+    top = value in {'app_selector', 'xhs_gender_filter_enabled', 'mode_whitelist', 'mode_blacklist', '更多设置'}
+    for upward in ((False, True) if top else (True, False)):
+        for _ in range(6):
+            n = find(value, attr, required=False)
+            if n is not None: return n
+            w,h = dimensions(); start,end = (.68,.36) if upward else (.36,.68)
+            adb('shell','input','swipe',str(w//2),str(int(h*start)),str(w//2),str(int(h*end)),'220')
     raise AssertionError('Not scroll-reachable: '+value)
 
 def choose(name): tap('app_selector'); tap(name,'text')
@@ -75,6 +82,25 @@ def wait_saved(predicate):
 def save(): tap('save_rules')
 
 def gender_checked(): return find('xhs_gender_filter_enabled').get('checked')=='true'
+
+def assert_keyboard_actions_visible():
+    density = int(re.findall(r'\d+', adb('shell','wm','density').stdout.decode())[-1]) / 160
+    deadline = time.monotonic() + 8
+    while time.monotonic() < deadline:
+        windows = adb('shell','dumpsys','window','windows').stdout.decode(errors='replace')
+        ime = re.search(r'Window #\d+ Window\{[^\n]* InputMethod\}:([\s\S]*?)(?=\n  Window #|\Z)', windows)
+        if ime:
+            content = re.search(r'mGivenContentInsets=\[\d+,(\d+)\]', ime[1])
+            frame = re.search(r'Frames:[^\n]* frame=\[\d+,(\d+)\]', ime[1])
+            if content and frame:
+                keyboard_top = int(content[1]) + int(frame[1])
+                xml = tree()
+                actions = [find(label, 'text', xml=xml, required=False) for label in ('取消', '完成')]
+                bounds = [list(map(int,re.findall(r'\d+', n.get('bounds')))) for n in actions if n is not None]
+                if len(bounds) == 2 and all(b <= keyboard_top and b-t >= 44*density for l,t,r,b in bounds):
+                    return {'keyboard_top':keyboard_top, 'cancel_bounds':bounds[0], 'complete_bounds':bounds[1]}
+        time.sleep(.1)
+    raise AssertionError('Dialog actions are clipped or overlap the software keyboard')
 
 def restore(namespace,key,value):
     adb('shell','settings','delete' if value=='null' else 'put',namespace,key,*(() if value=='null' else (value,)),check=False)
@@ -104,7 +130,7 @@ try:
     xml=E.Element('map'); E.SubElement(xml,'long',name='revision',value='1');E.SubElement(xml,'string',name='json').text=json.dumps(data)
     adb('shell','run-as',PKG,'tee','shared_prefs/rules.'+XHS+'.xml',data=E.tostring(xml))
     restart(); tap('app_selector'); shot('01-app-picker.png'); tap('小红书','text')
-    assert not gender_checked(); find('xhs_gender_filter_note'); find('规则已暂停 · 性别过滤未开启','text')
+    assert not gender_checked(); find('xhs_gender_filter_note'); reveal('规则已暂停 · 性别过滤未开启','text')
     shot('02-xhs-off.png')
     tap('add_rule'); assert find('rule_gender_section',required=False) is None
     shot('03-add-off.png'); tap('取消','text')
@@ -118,9 +144,9 @@ try:
     tap('xhs_gender_filter_enabled'); assert gender_checked() and not read()['resolveProfileGender']
     tap('add_rule'); reveal('rule_gender_female'); shot('04-add-on.png')
     tap('rule_gender_female'); tap('完成','text')
-    find('性别 · 女','text'); save()
+    reveal('性别 · 女','text'); save()
     wait_saved(lambda s:s['resolveProfileGender'] and len(s['blacklist'])==3)
-    restart(); assert gender_checked(); find('性别 · 女','text')
+    restart(); assert gender_checked(); reveal('性别 · 女','text')
     results['on_shows_gender_manual_save_and_process_restore']=True
 
     choose('抖音'); assert find('xhs_gender_settings',required=False) is None
@@ -146,7 +172,7 @@ try:
         if re.search(r'mInputShown=true|mIsInputViewShown=true',ime_state): keyboard_visible=True;break
         time.sleep(.1)
     assert keyboard_visible,'Software keyboard did not become visible'
-    find('完成','text');shot('06-editor-keyboard.png')
+    results['keyboard_visible_action_bounds'] = assert_keyboard_actions_visible();shot('06-editor-keyboard.png')
     results['software_keyboard_visible_and_actions_reachable']=True
     adb('shell','input','keyevent','KEYCODE_BACK');tap('取消','text')
     adb('shell','cmd','uimode','night','yes');tap('add_rule');reveal('rule_gender_female');shot('07-editor-dark.png');tap('取消','text')

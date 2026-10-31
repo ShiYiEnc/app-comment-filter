@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <item type="id" name="dialog_heading" />
     <item type="id" name="runtime_status" /><item type="id" name="runtime_status_title" />
     <item type="id" name="runtime_status_summary" />
     <item type="id" name="app_selector" />

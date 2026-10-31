@@ -2,7 +2,7 @@ package io.github.appcommentfilter.config;
 
 /** Stable profile identity; independent of the module application's package name. */
 public enum HostApp {
-    KUAISHOU("com.smile.gifmaker", "快手", "14.9.20.50799"),
+    KUAISHOU("com.smile.gifmaker", "快手", "14.9.20.50799 / 14.9.30.50933"),
     BILIBILI("tv.danmaku.bili", "哔哩哔哩", "9.17.0"),
     BILIBILI_HD("tv.danmaku.bilibilihd", "哔哩哔哩 HD", "2.5.1"),
     XIAOHONGSHU("com.xingin.xhs", "小红书", "9.52.0"),

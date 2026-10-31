@@ -21,6 +21,17 @@ public final class RuntimeStatusInstrumentation extends Instrumentation {
     private void check(boolean condition, String name) { if (!condition) throw new AssertionError(name); }
     @Override public void onStart() {
         Bundle result = new Bundle();
+        if (arguments.getString("contractApk") != null) {
+            try {
+                result.putString("result", KuaishouContractProbe.inspect(getTargetContext(), arguments.getString("contractApk")));
+                finish(Activity.RESULT_OK, result);
+            } catch (Throwable error) {
+                StringBuilder message = new StringBuilder();
+                for (Throwable cause = error; cause != null; cause = cause.getCause()) message.append(cause).append("; ");
+                result.putString("error", message.toString()); finish(Activity.RESULT_CANCELED, result);
+            }
+            return;
+        }
         SharedPreferences preferences = getTargetContext().getSharedPreferences("runtime_status", Context.MODE_PRIVATE);
         Map<String, ?> backup = preferences.getAll();
         boolean seed = arguments.getString("seed") != null;

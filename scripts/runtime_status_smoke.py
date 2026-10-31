@@ -75,15 +75,15 @@ backup = 'runtime_smoke_backup_' + uuid.uuid4().hex
 had_prefs = isolated = stub_installed = False
 night = adb('shell', 'settings', 'get', 'secure', 'ui_night_mode').stdout.decode().strip()
 try:
-    adb('install', '-r', a.apk)
-    adb('install', '-r', a.test_apk)
+    adb('install', '--no-incremental', '-r', a.apk)
+    adb('install', '--no-incremental', '-r', a.test_apk)
     adb('shell', 'am', 'force-stop', PKG)
     had_prefs = adb('shell', 'run-as', PKG, 'test', '-d', 'shared_prefs', check=False).returncode == 0
     if had_prefs:
         adb('shell', 'run-as', PKG, 'mv', 'shared_prefs', backup)
     isolated = True
     adb('shell', 'run-as', PKG, 'mkdir', '-p', 'shared_prefs')
-    adb('install', a.stub_apk)
+    adb('install', '--no-incremental', a.stub_apk)
     stub_installed = True
     results['binder_tests'] = instrument()
     adb('shell', 'am', 'force-stop', PKG)

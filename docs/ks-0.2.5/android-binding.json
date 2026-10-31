@@ -1,0 +1,34 @@
+{
+  "api": 37,
+  "moduleVersion": "0.2.5",
+  "method": "test APK KuaishouContractProbe; PathClassLoader with Class.forName initialization=false; reflection declarations only",
+  "hostApplicationStarted": false,
+  "hostMethodsInvoked": false,
+  "lsposedHooksTested": false,
+  "artifacts": [
+    {
+      "apkSha256": "74f25f5e5fb05ebd1b31988664497eb997f51e8d4c8e73c97b799ecf041ccfff",
+      "version": "14.9.20.50799",
+      "result": "PASS",
+      "parser": "w1(w2b.q):void",
+      "commentModel": "dpb.d",
+      "pagingBindings": "PASS: coreField, first, loading, latest, completion, failure, cancel, load, locked",
+      "footerWrapper": "pcl.f",
+      "paramsGetter": "AbsCommentsFragment.Tq",
+      "nativePagerLatest": "drk.i.j0():Object"
+    },
+    {
+      "apkSha256": "ec3caca3406f264c7c6fba3ebd0fa95a0dfd3af92dfd2d242b0ec679b24f215f",
+      "version": "14.9.30.50933",
+      "result": "PASS",
+      "parser": "x1(m3b.q):void",
+      "commentModel": "vpb.d",
+      "pagingBindings": "PASS: coreField, first, loading, latest, completion, failure, cancel, load, locked",
+      "footerWrapper": "tdl.f",
+      "paramsGetter": "AbsCommentsFragment.Wq",
+      "nativePagerLatest": "hsk.i.k0():Object"
+    }
+  ],
+  "oldRawOutput": "android-old-binding.log",
+  "newRawOutput": "Summary transcribed from returned instrumentation output; no raw log file was captured."
+}

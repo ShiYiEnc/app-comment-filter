@@ -28,6 +28,7 @@ public final class XiaohongshuCommentFilter {
     private final Field id, content, location, rootId, childRootId, author, authorId;
     private final GenderLookup genders;
     private final FilterDiagnostics diagnostics;
+    private final XiaohongshuRowRelations relations;
 
     public XiaohongshuCommentFilter(Class<?> rootRow, Class<?> commentRow, Class<?> childRow,
                                     Class<?> info) throws ReflectiveOperationException {
@@ -40,7 +41,14 @@ public final class XiaohongshuCommentFilter {
     }
     public XiaohongshuCommentFilter(Class<?> rootRow, Class<?> commentRow, Class<?> childRow,
                                     Class<?> info, GenderLookup genders, FilterDiagnostics diagnostics) throws ReflectiveOperationException {
+        this(rootRow, commentRow, childRow, info, genders, diagnostics, null);
+    }
+
+    XiaohongshuCommentFilter(Class<?> rootRow, Class<?> commentRow, Class<?> childRow,
+                            Class<?> info, GenderLookup genders, FilterDiagnostics diagnostics,
+                            XiaohongshuRowRelations relations) throws ReflectiveOperationException {
         this.diagnostics = diagnostics;
+        this.relations = relations;
         this.rootRow = rootRow;
         this.commentRow = commentRow;
         this.childRow = childRow;
@@ -72,9 +80,10 @@ public final class XiaohongshuCommentFilter {
         Set<String> hiddenIds = new HashSet<>();
         int read = 0; Throwable failure = null;
         for (Object row : original) {
-            if (!rootRow.isInstance(row)) continue;
             try {
-                Object info = model.invoke(row);
+                Object comment = relations == null ? row : relations.comment(row);
+                if (!rootRow.isInstance(comment)) continue;
+                Object info = model.invoke(comment);
                 if (info == null) continue;
                 Comment snapshot = new Comment((String) content.get(info), (String) location.get(info), Gender.UNKNOWN, false);
                 io.github.appcommentfilter.core.Decision decision;
@@ -106,14 +115,17 @@ public final class XiaohongshuCommentFilter {
         for (Object row : original) {
             if (hidden.contains(row)) continue;
             boolean attachedToHidden = false;
-            if (commentRow.isInstance(row) && !rootRow.isInstance(row)) {
-                try {
-                    Object info = model.invoke(row);
+            try {
+                String controlOwner = relations == null ? null : relations.replyControlOwner(row);
+                attachedToHidden = controlOwner != null && hiddenIds.contains(controlOwner);
+                Object comment = relations == null ? row : relations.comment(row);
+                if (commentRow.isInstance(comment) && !rootRow.isInstance(comment)) {
+                    Object info = model.invoke(comment);
                     String owner = info == null ? null : (String) rootId.get(info);
-                    if ((owner == null || owner.isEmpty()) && childRow.isInstance(row)) owner = (String) childRootId.get(row);
+                    if ((owner == null || owner.isEmpty()) && childRow.isInstance(comment)) owner = (String) childRootId.get(comment);
                     attachedToHidden = owner != null && hiddenIds.contains(owner);
-                } catch (ReflectiveOperationException | RuntimeException | LinkageError error) { failure = error; }
-            }
+                }
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError error) { failure = error; }
             if (!attachedToHidden) result.add(row);
         }
         diagnostics.onBatch(read, original.size() - result.size(), failure);
